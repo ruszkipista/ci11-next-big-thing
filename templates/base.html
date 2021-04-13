@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello Flask</title>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li style="display: inline-block;"><a href="{{ url_for('index') }}">Home</a></li>
+            <li style="display: inline-block;"><a href="{{ url_for('about') }}">About</a></li>
+            <li style="display: inline-block;"><a href="{{ url_for('contact') }}">Contact</a></li>
+        </ul>
+    </nav>
+   <h1>{{ page_title }}</h1>
+   {% block content01 %}
+   {% endblock %}
+
+</body>
+</html>
