@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+<!-- https://github.com/jakerieger/FlaskIntroduction -->
+{% block head %}
+<link rel="shortcut icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/x-icon">
+<title>Task Master</title>
+{% endblock %}
+
+{% block body %}
+<div class="content">
+    {% if tasks|length < 1 %}
+    <h4>There are no tasks. Create one below!</h4>
+    {% else %}
+    <table>
+        <tr>
+            <th>Task</th>
+            <th>Added</th>
+            <th>Modified</th>
+            <th>Actions</th>
+        </tr>
+        {% for task in tasks %}
+            <tr>
+                <td>{{ task['Content' ]}}</td>
+                <td>{{ task['DatTimIns'] }}</td>
+                <td>{{ task['DatTimUpd'] }}</td>
+                <td>
+                    <a href="{{ page_url }}/delete/{{task['TaskId']}}">Delete</a>
+                    <br>
+                    <a href="{{ page_url }}/update/{{task['TaskId']}}">Update</a>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    <div class="form">
+        <form action="{{ page_url }}" method="POST" name="newTask">
+            <input type="text" name="content" id="content">
+            <input type="submit" value="Add Task">
+        </form>
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul>
+            {% for message in messages%}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% endwith %}
+    </div>
+</div>
+{% endblock %}

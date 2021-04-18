@@ -1,9 +1,10 @@
 import os
-from flask import Flask, render_template, g, request, flash
+from flask import Flask, render_template, g, request, redirect, flash
 if os.path.exists("env.py"):
     import env
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_FLASH_KEY")
 
 # SQLite patterns from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
 import sqlite3
@@ -17,17 +18,14 @@ def get_db():
         db.row_factory = sqlite3.Row
     return db
 
-def init_db():
-    """
-    # To create the empty database, run this at python prompt:
-    # > from run import init_db
-    # > init_db()
-    """
+def init_db(load_content=False):
     with app.app_context():
         db = get_db()
         SCHEMA = os.environ.get("SQLITE_SCHEMA", './data/schema.sql')
-        print(SCHEMA)
         with app.open_resource(SCHEMA, mode='r') as f:
+            db.cursor().executescript(f.read())
+        CONTENT = os.environ.get("SQLITE_CONTENT", './data/content.sql')
+        with app.open_resource(CONTENT, mode='r') as f:
             db.cursor().executescript(f.read())
         db.commit()
         
@@ -37,6 +35,23 @@ def query_db(query, args=(), one=False):
     cur.close()
     return (rv[0] if rv else None) if one else rv
 
+def insert_db(table, columns=(), values=()):
+    cur = get_db().cursor()
+    if not cur:
+        return None
+    try:
+        # generate list of column names
+        col_list   = ",".join(columns)
+        # generate list of question marks
+        qmark_list = ','.join('?'*len(columns))
+        query=f"INSERT INTO {table} ({col_list}) VALUES ({qmark_list})"
+        cur.execute(query, values)
+        cur.connection.commit()
+        return True
+    except:
+        cur.connection.rollback()
+        return False
+
 @app.teardown_appcontext
 def close_connection(exception):
     db = getattr(g, '_database', None)
@@ -45,7 +60,6 @@ def close_connection(exception):
 
 #================================
 # App routing
-app.secret_key = os.environ.get("FLASK_FLASH_KEY")
 
 @app.route("/")  # trigger point through webserver: "/"= root directory
 def index():
@@ -55,11 +69,23 @@ def index():
 def about():
     return render_template("about.html", page_title="About")
 
+@app.route("/todo", methods=['GET','POST'])
+def todo():
+    if request.method == 'POST':
+        task = (request.form.get('content'),)
+        result = insert_db('Todos', ['Content'], task)
+        if result:
+            flash("Record successfully added")
+        else:
+            flash("Error in insert operation")
+
+    tasks = query_db("SELECT * FROM TodosView ORDER BY DatTimIns;")
+    return render_template("todo.html", page_title="Task Master", page_url=request.path, tasks=tasks)
+
 @app.route("/contact", methods=['GET','POST'])
 def contact():
     if request.method == 'POST':
         flash(f"Thanks {request.form.get('name')}, we have received your message!")
-
     return render_template("contact.html", page_title="Contact")
 
 # Run the App

@@ -18,17 +18,10 @@ BEGIN
      WHERE TaskId = new.TaskId;
 END;
 
+/* convert Unix-Times to DateTimes so not every single query needs to do so */ 
 CREATE VIEW TodosView AS
     SELECT TaskId, 
            Content,
-           /* convert Unix-Times to DateTimes so not every single query needs to do so */ 
            DateTime(DatTimIns, 'unixepoch') AS DatTimIns, -- convert Integer(4) (treating it as Unix-Time)
            DateTime(DatTimUpd, 'unixepoch') AS DatTimUpd  -- to YYYY-MM-DD HH:MM:SS
       FROM Todos;
-
-Insert Into Todos (Content) Values ('One');                    -- activate the field Default
--- WAIT a few seconds --    
-Insert Into Todos (Content) Values ('Two');                    -- same thing but with
-Insert Into Todos (Content) Values ('Thr');                    --   later time values
-
-Update Todos Set Content = Content || ' Upd' Where TaskId = 1; -- activate the Update-trigger
