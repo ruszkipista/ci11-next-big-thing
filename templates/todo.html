@@ -38,7 +38,7 @@
         <form action="{{ page_url }}" method="POST" name="task">
             <input type="text" name="Content" id="content" value="{{ last_task['Content'] }}">
             <input type="checkbox" name="Completed" id="completed" {% if last_task['Completed'] == 1 %}checked{% endif %}>
-            <button type="submit">{% if last_task['TaskId'] == None %}Add Task{% else %}Update Task{% endif %}</button>
+            <button type="submit">{% if last_task.TaskId is defined %}Update Task{% else %}Add Task{% endif %}</button>
         </form>
         {% with messages = get_flashed_messages() %}
         {% if messages %}

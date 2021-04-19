@@ -97,14 +97,14 @@ def delete_row(table:str, id:int):
         cur.connection.rollback()
         return error
 
-def update_row(table:str, key_column:str, row:sqlite3.Row):
+def update_row(table:str, row:sqlite3.Row, id:int):
     """ update one row by <rowid> from given table """
     cur = get_db().cursor()
     if not cur:
         return ""
     try:
-        columns = [column for column in row.keys() if column != key_column]
-        values  = tuple([row[column] for column in columns]+[row[key_column]])
+        columns = row.keys()
+        values  = tuple([row[column] for column in columns]+[id])
         # generate "<column>=?,..." list
         set_list = ",".join([column+"=? " for column in columns])
         query=f"UPDATE {table} SET {set_list} WHERE rowid=?;"
@@ -133,8 +133,8 @@ def todo():
     if request.method == 'POST':
         columns = ('Content','Completed')
         values  = [request.form.get(column) for column in columns]
-        values[1] = 1 if values[1]=="on" else 0
         # checkbox value conversion to integer
+        values[1] = 1 if values[1]=="on" else 0
         task = create_row(columns, values)
         result = insert_row('Todos', task)
         if type(result) == int:
@@ -166,7 +166,12 @@ def update(task_id):
         return redirect("/todo")
 
     if request.method == 'POST':
-        result = update_row('Todos', 'TaskId', task)
+        columns = ('Content','Completed')
+        values  = [request.form.get(column) for column in columns]
+        # checkbox value conversion to integer
+        values[1] = 1 if values[1]=="on" else 0
+        task = create_row(columns, values)
+        result = update_row('Todos', task, task_id)
         if type(result) == int:
             flash(f"{result} Record updated")
         else:
