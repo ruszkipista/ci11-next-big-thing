@@ -6,9 +6,8 @@ if os.path.exists("env.py"):
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_FLASH_KEY")
 
-# SQLite patterns from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
 import sqlite3
-
+# SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -18,6 +17,14 @@ def get_db():
         db.row_factory = sqlite3.Row
     return db
 
+# SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
+
+# inspired by SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
 def init_db(load_content=False):
     with app.app_context():
         db = get_db()
@@ -28,13 +35,15 @@ def init_db(load_content=False):
         with app.open_resource(CONTENT, mode='r') as f:
             db.cursor().executescript(f.read())
         db.commit()
-        
+
+# inspired by SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/        
 def query_db(query, args=(), one=False):
     cur = get_db().execute(query, args)
     rv = cur.fetchone() if one else cur.fetchall()
     cur.close()
     return (rv[0] if rv else None) if one else rv
 
+# inspired by Example 1 from https://www.programcreek.com/python/example/3926/sqlite3.Row
 def create_row(columns, values):
     cur = get_db().cursor()
     if not cur:
@@ -44,13 +53,15 @@ def create_row(columns, values):
     query=f"SELECT {col_list}"
     return cur.execute(query, values).fetchone()
 
-def insert_db(table, columns=(), values=()):
+def insert_db(table:str, row:sqlite3.Row) -> bool:
     cur = get_db().cursor()
     if not cur:
         return None
     try:
+        columns = row.keys()
+        values  = tuple(row[key] for key in columns)
         # generate list of column names
-        col_list   = ",".join(columns)
+        col_list = ",".join(columns)
         # generate list of question marks
         qmark_list = ','.join('?'*len(columns))
         query=f"INSERT INTO {table} ({col_list}) VALUES ({qmark_list})"
@@ -60,12 +71,6 @@ def insert_db(table, columns=(), values=()):
     except:
         cur.connection.rollback()
         return False
-
-@app.teardown_appcontext
-def close_connection(exception):
-    db = getattr(g, '_database', None)
-    if db is not None:
-        db.close()
 
 #================================
 # App routing
@@ -82,9 +87,9 @@ def about():
 def todo():
     task={}
     if request.method == 'POST':
-        task = (request.form.get('content'),)
-        print(create_row(['Content','Completed'],('todo',42))['Completed'])
-        result = insert_db('Todos', ['Content'], task)
+        columns = ('Content','Completed')
+        values  = (request.form.get('content'), 42)
+        result = insert_db('Todos', create_row(columns, values))
         if result:
             flash("Record successfully added")
         else:
