@@ -22,6 +22,7 @@ END;
 CREATE VIEW TodosView AS
     SELECT TaskId, 
            Content,
+           Completed,
            DateTime(DatTimIns, 'unixepoch') AS DatTimIns, -- convert Integer(4) (treating it as Unix-Time)
            DateTime(DatTimUpd, 'unixepoch') AS DatTimUpd  -- to YYYY-MM-DD HH:MM:SS
       FROM Todos;

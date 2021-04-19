@@ -53,14 +53,14 @@ def create_row(columns, values):
         return None
     # generate "? AS <column>, ..."
     col_list = ", ".join([f"? AS '{col}'" for col in columns])
-    query=f"SELECT {col_list}"
+    query=f"SELECT {col_list};"
     return cur.execute(query, values).fetchone()
 
-def insert_db(table:str, row:sqlite3.Row) -> bool:
+def insert_row(table:str, row:sqlite3.Row) -> bool:
     """ insert one row into given table """
     cur = get_db().cursor()
     if not cur:
-        return None
+        return 0
     try:
         columns = row.keys()
         values  = tuple(row[key] for key in columns)
@@ -68,15 +68,27 @@ def insert_db(table:str, row:sqlite3.Row) -> bool:
         col_list = ",".join(columns)
         # generate list of question marks
         qmark_list = ','.join('?'*len(columns))
-        query=f"INSERT INTO {table} ({col_list}) VALUES ({qmark_list})"
+        query=f"INSERT INTO {table} ({col_list}) VALUES ({qmark_list});"
         cur.execute(query, values)
         cur.connection.commit()
-        return True
-    except:
+        return cur.rowcount
+    except sqlite3.Error as error:
         cur.connection.rollback()
-        return False
+        return error
  
-
+def delete_row(table:str, id:int):
+    """ delete one row by <rowid> from given table """
+    cur = get_db().cursor()
+    if not cur:
+        return ""
+    try:
+        query=f"DELETE FROM {table} WHERE rowid=?;"
+        cur.execute(query, (id,))
+        cur.connection.commit()
+        return cur.rowcount
+    except sqlite3.Error as error:
+        cur.connection.rollback()
+        return error
 #================================
 # App routing
 #================================
@@ -92,18 +104,30 @@ def about():
 def todo():
     task={}
     if request.method == 'POST':
-        columns = ('Content',)
-        values  = (request.form.get('content'),)
+        columns = ('Content','Completed')
+        values  = [request.form.get(column) for column in columns]
+        values[1] = 1 if values[1]=="on" else 0
+        # checkbox value conversion to integer
         task = create_row(columns, values)
-        result = insert_db('Todos', task)
-        if result:
+        result = insert_row('Todos', task)
+        if type(result) == int:
             flash("Record successfully added")
-            task = create_row(columns, ("",))
+            task = create_row(columns, ("",0))
         else:
-            flash("Error in insert operation")
+            flash("Error in insert operation:", result)
 
-    tasks = query_db("SELECT * FROM TodosView ORDER BY DatTimIns;")
+    tasks = query_db("SELECT * FROM TodosView ORDER BY Completed;")
     return render_template("todo.html", page_title="Task Master", page_url=request.path, tasks=tasks, last_task=task)
+
+@app.route("/todo/delete/<int:task_id>")
+def delete(task_id):
+    result = delete_row('Todos', task_id)
+    if type(result) == int:
+        flash(f"{result} Record successfully deleted")
+    else:
+        flash("Error in delete operation: ", result)
+
+    return redirect('/todo')
 
 @app.route("/contact", methods=['GET','POST'])
 def contact():
