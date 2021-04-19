@@ -6,6 +6,7 @@ if os.path.exists("env.py"):
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_FLASH_KEY")
 
+
 # SQLite3 helpers
 #=====================
 import sqlite3
@@ -19,12 +20,14 @@ def get_db():
         db.row_factory = sqlite3.Row
     return db
 
+
 # SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
 @app.teardown_appcontext
 def close_connection(exception):
     db = getattr(g, '_database', None)
     if db is not None:
         db.close()
+
 
 # inspired by SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
 def init_db(load_content=False):
@@ -38,12 +41,14 @@ def init_db(load_content=False):
             db.cursor().executescript(f.read())
         db.commit()
 
+
 # inspired by SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/        
 def query_db(query, args=(), one=False):
     cur = get_db().execute(query, args)
     rv = cur.fetchone() if one else cur.fetchall()
     cur.close()
-    return (rv[0] if rv else None) if one else rv
+    return (rv[0] if type(rv)==list else rv) if one else rv
+
 
 # inspired by Example 1 from https://www.programcreek.com/python/example/3926/sqlite3.Row
 def create_row(columns, values):
@@ -55,6 +60,7 @@ def create_row(columns, values):
     col_list = ", ".join([f"? AS '{col}'" for col in columns])
     query=f"SELECT {col_list};"
     return cur.execute(query, values).fetchone()
+
 
 def insert_row(table:str, row:sqlite3.Row) -> bool:
     """ insert one row into given table """
@@ -76,6 +82,7 @@ def insert_row(table:str, row:sqlite3.Row) -> bool:
         cur.connection.rollback()
         return error
  
+
 def delete_row(table:str, id:int):
     """ delete one row by <rowid> from given table """
     cur = get_db().cursor()
@@ -89,16 +96,36 @@ def delete_row(table:str, id:int):
     except sqlite3.Error as error:
         cur.connection.rollback()
         return error
-#================================
+
+def update_row(table:str, key_column:str, row:sqlite3.Row):
+    """ update one row by <rowid> from given table """
+    cur = get_db().cursor()
+    if not cur:
+        return ""
+    try:
+        columns = [column for column in row.keys() if column != key_column]
+        values  = tuple([row[column] for column in columns]+[row[key_column]])
+        # generate "<column>=?,..." list
+        set_list = ",".join([column+"=? " for column in columns])
+        query=f"UPDATE {table} SET {set_list} WHERE rowid=?;"
+        cur.execute(query, values)
+        cur.connection.commit()
+        return cur.rowcount
+    except sqlite3.Error as error:
+        cur.connection.rollback()
+        return error
+
 # App routing
-#================================
+#==============
 @app.route("/")  # trigger point through webserver: "/"= root directory
 def index():
     return render_template("index.html", page_title="Home")
 
+
 @app.route("/about")
 def about():
     return render_template("about.html", page_title="About")
+
 
 @app.route("/todo", methods=['GET','POST'])
 def todo():
@@ -117,17 +144,39 @@ def todo():
             flash("Error in insert operation:", result)
 
     tasks = query_db("SELECT * FROM TodosView ORDER BY Completed;")
-    return render_template("todo.html", page_title="Task Master", page_url=request.path, tasks=tasks, last_task=task)
+    return render_template("todo.html", page_title="Task Master", 
+                            page_url=request.path, tasks=tasks, last_task=task)
+
 
 @app.route("/todo/delete/<int:task_id>")
 def delete(task_id):
     result = delete_row('Todos', task_id)
     if type(result) == int:
-        flash(f"{result} Record successfully deleted")
+        flash(f"{result} Record deleted")
     else:
         flash("Error in delete operation: ", result)
-
     return redirect('/todo')
+
+
+@app.route("/todo/update/<int:task_id>", methods=['GET','POST'])
+def update(task_id):
+    task = query_db("SELECT * FROM Todos WHERE rowid=?;", (task_id,), one=True)
+    if task is None:
+        flash(f"Task {task_id} does not exist")
+        return redirect("/todo")
+
+    if request.method == 'POST':
+        result = update_row('Todos', 'TaskId', task)
+        if type(result) == int:
+            flash(f"{result} Record updated")
+        else:
+            flash("Error in update operation: ", result)
+        return redirect("/todo")
+    print(task)
+    tasks = query_db("SELECT * FROM TodosView ORDER BY Completed;")
+    return render_template("todo.html", page_title="Task Master", 
+                            page_url=request.path, tasks=tasks, last_task=task)
+
 
 @app.route("/contact", methods=['GET','POST'])
 def contact():
@@ -135,7 +184,9 @@ def contact():
         flash(f"Thanks {request.form.get('name')}, we have received your message!")
     return render_template("contact.html", page_title="Contact")
 
+
 # Run the App
+#=================
 if __name__ == "__main__":
     if os.environ.get("SQLITE_INIT", "False").lower() == 'true':
         init_db()
