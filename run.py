@@ -35,6 +35,15 @@ def query_db(query, args=(), one=False):
     cur.close()
     return (rv[0] if rv else None) if one else rv
 
+def create_row(columns, values):
+    cur = get_db().cursor()
+    if not cur:
+        return None
+    # generate "? AS <column>, ..."
+    col_list = ", ".join([f"? AS '{col}'" for col in columns])
+    query=f"SELECT {col_list}"
+    return cur.execute(query, values).fetchone()
+
 def insert_db(table, columns=(), values=()):
     cur = get_db().cursor()
     if not cur:
@@ -71,8 +80,10 @@ def about():
 
 @app.route("/todo", methods=['GET','POST'])
 def todo():
+    task={}
     if request.method == 'POST':
         task = (request.form.get('content'),)
+        print(create_row(['Content','Completed'],('todo',42))['Completed'])
         result = insert_db('Todos', ['Content'], task)
         if result:
             flash("Record successfully added")
@@ -80,7 +91,7 @@ def todo():
             flash("Error in insert operation")
 
     tasks = query_db("SELECT * FROM TodosView ORDER BY DatTimIns;")
-    return render_template("todo.html", page_title="Task Master", page_url=request.path, tasks=tasks)
+    return render_template("todo.html", page_title="Task Master", page_url=request.path, tasks=tasks, task=task)
 
 @app.route("/contact", methods=['GET','POST'])
 def contact():
