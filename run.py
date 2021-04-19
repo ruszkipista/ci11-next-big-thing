@@ -87,8 +87,8 @@ def about():
 def todo():
     task={}
     if request.method == 'POST':
-        columns = ('Content','Completed')
-        values  = (request.form.get('content'), 42)
+        columns = ('Content',)
+        values  = (request.form.get('content'),)
         result = insert_db('Todos', create_row(columns, values))
         if result:
             flash("Record successfully added")
