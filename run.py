@@ -6,6 +6,8 @@ if os.path.exists("env.py"):
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_FLASH_KEY")
 
+# SQLite3 helpers
+#=====================
 import sqlite3
 # SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
 def get_db():
@@ -45,6 +47,7 @@ def query_db(query, args=(), one=False):
 
 # inspired by Example 1 from https://www.programcreek.com/python/example/3926/sqlite3.Row
 def create_row(columns, values):
+    """ convert column names and corresponding values into sqlite3.Row type object """
     cur = get_db().cursor()
     if not cur:
         return None
@@ -54,6 +57,7 @@ def create_row(columns, values):
     return cur.execute(query, values).fetchone()
 
 def insert_db(table:str, row:sqlite3.Row) -> bool:
+    """ insert one row into given table """
     cur = get_db().cursor()
     if not cur:
         return None
@@ -71,10 +75,11 @@ def insert_db(table:str, row:sqlite3.Row) -> bool:
     except:
         cur.connection.rollback()
         return False
+ 
 
 #================================
 # App routing
-
+#================================
 @app.route("/")  # trigger point through webserver: "/"= root directory
 def index():
     return render_template("index.html", page_title="Home")
@@ -89,14 +94,16 @@ def todo():
     if request.method == 'POST':
         columns = ('Content',)
         values  = (request.form.get('content'),)
-        result = insert_db('Todos', create_row(columns, values))
+        task = create_row(columns, values)
+        result = insert_db('Todos', task)
         if result:
             flash("Record successfully added")
+            task = create_row(columns, ("",))
         else:
             flash("Error in insert operation")
 
     tasks = query_db("SELECT * FROM TodosView ORDER BY DatTimIns;")
-    return render_template("todo.html", page_title="Task Master", page_url=request.path, tasks=tasks, task=task)
+    return render_template("todo.html", page_title="Task Master", page_url=request.path, tasks=tasks, last_task=task)
 
 @app.route("/contact", methods=['GET','POST'])
 def contact():
@@ -106,6 +113,8 @@ def contact():
 
 # Run the App
 if __name__ == "__main__":
+    if os.environ.get("SQLITE_INIT", "False").lower() == 'true':
+        init_db()
     app.run(
         host=os.environ.get("FLASK_IP", "0.0.0.0"),  #get value or use given default
         port=int(os.environ.get("PORT", "443")),#get value or use given default

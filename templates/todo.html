@@ -34,7 +34,7 @@
 
     <div class="form">
         <form action="{{ page_url }}" method="POST" name="newTask">
-            <input type="text" name="content" id="content" value="{{ task['Content'] }}">
+            <input type="text" name="content" id="content" value="{{ last_task['Content'] }}">
             <input type="submit" value="Add Task">
         </form>
         {% with messages = get_flashed_messages() %}
