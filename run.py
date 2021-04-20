@@ -182,6 +182,9 @@ def update(task_id):
     return render_template("todo.html", page_title="Task Master", 
                             page_url=request.path, tasks=tasks, last_task=task)
 
+@app.route("/gallery")
+def gallery():
+    return render_template("gallery.html", page_title="Gallery")
 
 @app.route("/contact", methods=['GET','POST'])
 def contact():
