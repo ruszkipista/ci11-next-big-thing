@@ -25,9 +25,9 @@
                 <td>{{ task['DatTimIns'] }}</td>
                 <td>{{ task['DatTimUpd'] }}</td>
                 <td>
-                    <a href="{{ page_url }}/delete/{{task['TaskId']}}">Delete</a>
+                    <a href="{{ url_for('delete_task', task_id=task['TaskId']) }}">Delete</a>
                     <br>
-                    <a href="{{ page_url }}/update/{{task['TaskId']}}">Update</a>
+                    <a href="{{ url_for('update_task', task_id=task['TaskId']) }}">Update</a>
                 </td>
             </tr>
         {% endfor %}

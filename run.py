@@ -1,11 +1,29 @@
 import os
-from flask import Flask, render_template, g, request, redirect, flash
+from flask import Flask, render_template, g, request, redirect, flash, send_from_directory
+from werkzeug.utils import secure_filename
+
+# env.py should exist only in Development
 if os.path.exists("env.py"):
     import env
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_FLASH_KEY")
 
+# take app configuration from OS environment variables
+app.secret_key               = os.environ.get("FLASK_FLASH_KEY")            # => Heroku Congig Vars
+app.config["FLASK_IP"]       = os.environ.get("FLASK_IP",      "127.0.0.1")
+# the source 'PORT' name is mandated by Heroku app deployment
+app.config["FLASK_PORT"]     = int(os.environ.get("PORT",      "5500"))
+app.config["FLASK_DEBUG"]    = os.environ.get("FLASK_DEBUG",   "True").lower() in {'1','true','t','yes','y'}
+app.config["SQLITE_INIT"]    = os.environ.get("SQLITE_INIT",   "False").lower() in {'1','true','t','yes','y'}# => Heroku Congig Vars
+app.config["SQLITE_DB"]      = os.environ.get("SQLITE_DB",     "./data/taskmaster.sqlite") 
+app.config["SQLITE_SCHEMA"]  = os.environ.get("SQLITE_SCHEMA", "./data/schema.sql")
+app.config["SQLITE_CONTENT"] = os.environ.get("SQLITE_CONTENT","./data/content.sql")
+app.config["TABLE_TODOS"]    = "Todos"
+app.config["TABLE_TODOV"]    = "TodosView"
+app.config["TABLE_IMAGES"]   = "Images"
+app.config["TABLE_IMAGEV"]   = "ImagesView"
+app.config["UPLOAD_FOLDER"]  = os.environ.get("UPLOAD_FOLDER", "./data/")
+app.config["UPLOAD_EXTENSIONS"] = set(['png', 'jpg', 'jpeg', 'gif'])
 
 # SQLite3 helpers
 #=====================
@@ -14,8 +32,7 @@ import sqlite3
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        DATABASE = os.environ.get("SQLITE_DB", './data/taskmaster.sqlite')
-        db = g._database = sqlite3.connect(DATABASE)
+        db = g._database = sqlite3.connect(app.config["SQLITE_DB"])
         # use built-in row translator
         db.row_factory = sqlite3.Row
     return db
@@ -33,11 +50,9 @@ def close_connection(exception):
 def init_db(load_content=False):
     with app.app_context():
         db = get_db()
-        SCHEMA = os.environ.get("SQLITE_SCHEMA", './data/schema.sql')
-        with app.open_resource(SCHEMA, mode='r') as f:
+        with app.open_resource(app.config["SQLITE_SCHEMA"], mode='r') as f:
             db.cursor().executescript(f.read())
-        CONTENT = os.environ.get("SQLITE_CONTENT", './data/content.sql')
-        with app.open_resource(CONTENT, mode='r') as f:
+        with app.open_resource(app.config["SQLITE_CONTENT"], mode='r') as f:
             db.cursor().executescript(f.read())
         db.commit()
 
@@ -62,7 +77,7 @@ def create_row(columns, values):
     return cur.execute(query, values).fetchone()
 
 
-def insert_row(table:str, row:sqlite3.Row) -> bool:
+def insert_row(table:str, row:sqlite3.Row):
     """ insert one row into given table """
     cur = get_db().cursor()
     if not cur:
@@ -77,7 +92,7 @@ def insert_row(table:str, row:sqlite3.Row) -> bool:
         query=f"INSERT INTO {table} ({col_list}) VALUES ({qmark_list});"
         cur.execute(query, values)
         cur.connection.commit()
-        return cur.rowcount
+        return cur.lastrowid
     except sqlite3.Error as error:
         cur.connection.rollback()
         return error
@@ -136,20 +151,20 @@ def todo():
         # checkbox value conversion to integer
         values[1] = 1 if values[1]=="on" else 0
         task = create_row(columns, values)
-        result = insert_row('Todos', task)
+        result = insert_row(app.config["TABLE_TODOS"], task)
         if type(result) == int:
             flash("Record successfully added")
             task = create_row(columns, ("",0))
         else:
             flash("Error in insert operation:", result)
 
-    tasks = query_db("SELECT * FROM TodosView ORDER BY Completed;")
+    tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
     return render_template("todo.html", page_title="Task Master", 
                             page_url=request.path, tasks=tasks, last_task=task)
 
 
 @app.route("/todo/delete/<int:task_id>")
-def delete(task_id):
+def delete_task(task_id):
     result = delete_row('Todos', task_id)
     if type(result) == int:
         flash(f"{result} Record deleted")
@@ -159,8 +174,8 @@ def delete(task_id):
 
 
 @app.route("/todo/update/<int:task_id>", methods=['GET','POST'])
-def update(task_id):
-    task = query_db("SELECT * FROM Todos WHERE rowid=?;", (task_id,), one=True)
+def update_task(task_id):
+    task = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} WHERE rowid=?;", (task_id,), one=True)
     if task is None:
         flash(f"Task {task_id} does not exist")
         return redirect("/todo")
@@ -171,20 +186,51 @@ def update(task_id):
         # checkbox value conversion to integer
         values[1] = 1 if values[1]=="on" else 0
         task = create_row(columns, values)
-        result = update_row('Todos', task, task_id)
+        result = update_row(app.config["TABLE_TODOS"], task, task_id)
         if type(result) == int:
             flash(f"{result} Record updated")
         else:
             flash("Error in update operation: ", result)
         return redirect("/todo")
     print(task)
-    tasks = query_db("SELECT * FROM TodosView ORDER BY Completed;")
-    return render_template("todo.html", page_title="Task Master", 
-                            page_url=request.path, tasks=tasks, last_task=task)
+    tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
+    return render_template("todo.html", page_title="Task Master", tasks=tasks, last_task=task)
 
-@app.route("/gallery")
+@app.route("/uploads/<local_filename>")
+def uploads(local_filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], local_filename)
+
+@app.route("/gallery/update/<int:image_id>")
+def update_image(image_id):
+    pass
+
+@app.route("/gallery/delete/<int:image_id>")
+def delete_image(image_id):
+    pass
+
+# following instructions from https://flask.palletsprojects.com/en/1.1.x/patterns/fileuploads/
+@app.route("/gallery", methods=['GET','POST'])
 def gallery():
-    return render_template("gallery.html", page_title="Gallery")
+    image={}
+    if request.method == 'POST':
+        data = request.files['SourceFileName']
+        if data:
+            filename_source = secure_filename(data.filename)
+            columns = ('Description','SourceFileName', 'LocalFileName')
+            values  = (request.form['Description'], filename_source,'')
+            image = create_row(columns, values)
+            image_id = insert_row(app.config["TABLE_IMAGES"], image)
+            if type(image_id) == int:
+                extension = filename_source.rsplit('.', 1)[1] if '.' in filename_source else ''
+                if extension in app.config["UPLOAD_EXTENSIONS"]:
+                    filename_local = str(image_id)+'.'+extension
+                    data.save(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
+                    image = create_row(('LocalFileName',), (filename_local,))
+                    result = update_row(app.config["TABLE_IMAGES"], image, image_id)
+
+    images = query_db(f"SELECT * FROM {app.config['TABLE_IMAGEV']} ORDER BY rowid DESC;")
+    return render_template("gallery.html", page_title="Gallery", images=images, last_image=image)
+
 
 @app.route("/contact", methods=['GET','POST'])
 def contact():
@@ -196,9 +242,9 @@ def contact():
 # Run the App
 #=================
 if __name__ == "__main__":
-    if os.environ.get("SQLITE_INIT", "False").lower() == 'true':
+    if app.config["SQLITE_INIT"]:
         init_db()
     app.run(
-        host=os.environ.get("FLASK_IP", "0.0.0.0"),  #get value or use given default
-        port=int(os.environ.get("PORT", "443")),#get value or use given default
-        debug = True if os.environ.get("FLASK_DEBUG", '').lower() == 'true' else False)
+        host=app.config["FLASK_IP"],
+        port=app.config["FLASK_PORT"],
+        debug = app.config["FLASK_DEBUG"])

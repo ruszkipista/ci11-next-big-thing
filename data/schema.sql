@@ -2,7 +2,7 @@ DROP VIEW IF EXISTS TodosView;
 DROP TABLE IF EXISTS Todos;
 
 CREATE TABLE Todos (
-    TaskId     INTEGER     PRIMARY KEY AUTOINCREMENT
+    TaskId     INTEGER     PRIMARY KEY
    ,Content    TEXT        NOT NULL
    ,Completed  INTEGER     NOT NULL DEFAULT 0
    ,DatTimIns  INTEGER (4) NOT NULL DEFAULT (strftime('%s', DateTime('Now', 'localtime'))) -- get Now/UTC, convert to local, convert to string/Unix Time, store as Integer(4)
@@ -22,7 +22,27 @@ END;
 CREATE VIEW TodosView AS
     SELECT TaskId, 
            Content,
-           Completed,
+           Completed, -- CheckBox: 1-checked, 0-unchecked
            DateTime(DatTimIns, 'unixepoch') AS DatTimIns, -- convert Integer(4) (treating it as Unix-Time)
            DateTime(DatTimUpd, 'unixepoch') AS DatTimUpd  -- to YYYY-MM-DD HH:MM:SS
       FROM Todos;
+
+DROP VIEW IF EXISTS ImagesView;
+DROP TABLE IF EXISTS Images;
+
+CREATE TABLE Images (
+    ImageId        INTEGER     PRIMARY KEY
+   ,Description    TEXT        NOT NULL
+   ,SourceFileName TEXT        NOT NULL
+   ,LocalFileName  TEXT        NOT NULL
+   ,DatTimIns      INTEGER (4) NOT NULL DEFAULT (strftime('%s', DateTime('Now', 'localtime'))) -- get Now/UTC, convert to local, convert to string/Unix Time, store as Integer(4)
+);
+
+/* convert Unix-Times to DateTimes so not every single query needs to do so */ 
+CREATE VIEW ImagesView AS
+    SELECT ImageId, 
+           Description,
+           SourceFileName,
+           LocalFileName,
+           DateTime(DatTimIns, 'unixepoch') AS DatTimIns -- convert Integer(4) (treating it as Unix-Time) to YYYY-MM-DD HH:MM:SS
+      FROM Images;
