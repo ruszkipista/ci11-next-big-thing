@@ -5,7 +5,6 @@ CREATE TABLE Todos (
     TaskId     INTEGER     PRIMARY KEY
    ,Content    TEXT        NOT NULL
    ,Completed  INTEGER     NOT NULL DEFAULT 0
-   ,Description    TEXT
    ,SourceFileName TEXT
    ,LocalFileName  TEXT
    ,DatTimIns  INTEGER (4) NOT NULL DEFAULT (strftime('%s', DateTime('Now', 'localtime'))) -- get Now/UTC, convert to local, convert to string/Unix Time, store as Integer(4)
@@ -13,7 +12,7 @@ CREATE TABLE Todos (
 );
 /* how to store timestamps as integers https://stackoverflow.com/questions/200309/sqlite-database-default-time-value-now  */
 CREATE TRIGGER trgTodosUpd
-         AFTER UPDATE OF Content -- list columns which should trigger the update
+         AFTER UPDATE OF Content, Completed, LocalFileName -- list columns which should trigger the update
             ON Todos
 BEGIN
     UPDATE Todos
@@ -26,7 +25,6 @@ CREATE VIEW TodosView AS
     SELECT TaskId, 
            Content,
            Completed, -- CheckBox: 1-checked, 0-unchecked
-           Description,
            SourceFileName,
            LocalFileName,
            DateTime(DatTimIns, 'unixepoch') AS DatTimIns, -- convert Integer(4) (treating it as Unix-Time)

@@ -1,6 +1,7 @@
 import os
 from flask import Flask, render_template, g, request, redirect, flash, send_from_directory
 from werkzeug.utils import secure_filename
+import time
 
 # env.py should exist only in Development
 if os.path.exists("env.py"):
@@ -20,6 +21,8 @@ app.config["SQLITE_SCHEMA"]  = os.environ.get("SQLITE_SCHEMA", "./data/schema.sq
 app.config["SQLITE_CONTENT"] = os.environ.get("SQLITE_CONTENT","./data/content.sql")
 app.config["TABLE_TODOS"]    = "Todos"
 app.config["TABLE_TODOV"]    = "TodosView"
+app.config["COLUMNS_TODOS"]  = ('TaskId','Content','Completed','SourceFileName','LocalFileName','DatTimIns', 'DatTimUpd')
+app.config["DEFAULTS_TODOS"] = (0,'','','','','','')
 app.config["UPLOAD_FOLDER"]  = os.environ.get("UPLOAD_FOLDER", "./data/")
 app.config["UPLOAD_EXTENSIONS"] = set(['png', 'jpg', 'jpeg', 'gif'])
 
@@ -142,35 +145,38 @@ def about():
 
 @app.route("/todo", methods=['GET','POST'])
 def todo():
-    task={}
+    # create an empty task
+    task = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
     if request.method == 'POST':
-        columns = ('Content','Completed')
-        values  = [request.form.get(column) for column in columns]
+        columns = ['Content','Completed']
+        values  = [request.form.get(column,'') for column in columns]
+        # following instructions from https://flask.palletsprojects.com/en/1.1.x/patterns/fileuploads/
+        data = request.files['SourceFileName']
+        if data:
+            filename_source = secure_filename(data.filename)
+            extension = filename_source.rsplit('.', 1)[1] if '.' in filename_source else ''
+            if extension in app.config["UPLOAD_EXTENSIONS"]:
+                filename_local = str(time.time()).replace('.','')+'.'+extension
+        else:
+            filename_source = ''
+            filename_local  = ''
+        columns += ['SourceFileName','LocalFileName']
+        values  += [filename_source, filename_local]
         # checkbox value conversion to integer
         values[1] = 1 if values[1]=="on" else 0
         task = create_row(columns, values)
         row_id = insert_row(app.config["TABLE_TODOS"], task)
         if type(row_id) == int:
-            # following instructions from https://flask.palletsprojects.com/en/1.1.x/patterns/fileuploads/
-            data = request.files['SourceFileName']
             if data:
-                filename_source = secure_filename(data.filename)
-                extension = filename_source.rsplit('.', 1)[1] if '.' in filename_source else ''
-                if extension in app.config["UPLOAD_EXTENSIONS"]:
-                    filename_local = str(row_id)+'.'+extension
-                    data.save(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
-                    columns = ('Description','SourceFileName', 'LocalFileName')
-                    values =  (request.form['Description'], filename_source, filename_local)
-                    image = create_row(columns, values)
-                    result = update_row(app.config["TABLE_TODOS"], image, row_id)
-
+                data.save(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
+            task = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
             flash("Record successfully added")
-            columns = ('Content','Completed','Description','SourceFileName', 'LocalFileName')
-            task = create_row(columns, ("",0,"","",""))
         else:
             flash(f"Error in insert operation: {row_id}")
 
+    task  = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
+    tasks = [convertFromDBtoPrint(t, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
     if not tasks:
         flash("There are no tasks. Create one above!")
     return render_template("todo.html", page_title="Task Master", request_path=request.path, tasks=tasks, last_task=task)
@@ -178,11 +184,18 @@ def todo():
 
 @app.route("/todo/delete/<int:task_id>")
 def delete_task(task_id):
-    result = delete_row(app.config['TABLE_TODOS'], task_id)
-    if type(result) == int:
-        flash(f"{result} Record deleted")
+    task = query_db(f"SELECT LocalFileName FROM {app.config['TABLE_TODOS']} WHERE TaskId=?;", (task_id,), one=True)
+    if task is None:
+        flash(f"Task {task_id} does not exist")
     else:
-        flash(f"Error in delete operation: {result}")
+        result = delete_row(app.config['TABLE_TODOS'], task_id)
+        if type(result) == int:
+            filename_local = task['LocalFileName']
+            if filename_local:
+                os.remove(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
+            flash(f"{result} Record deleted")
+        else:
+            flash(f"Error in delete operation: {result}")
     return redirect('/todo')
 
 
@@ -195,7 +208,7 @@ def update_task(task_id):
 
     if request.method == 'POST':
         columns = ('Content','Completed')
-        values  = [request.form.get(column) for column in columns]
+        values  = [request.form.get(column, '') for column in columns]
         # checkbox value conversion to integer
         values[1] = 1 if values[1]=="on" else 0
         task = create_row(columns, values)
@@ -206,12 +219,17 @@ def update_task(task_id):
             flash(f"Error in update operation: {result}")
         return redirect("/todo")
 
+    task = convertFromDBtoPrint(task,app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
+    tasks = [convertFromDBtoPrint(t,app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
     return render_template("todo.html", page_title="Task Master", tasks=tasks, last_task=task)
 
-@app.route("/uploads/<local_filename>")
-def uploads(local_filename):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], local_filename)
+def convertFromDBtoPrint(row:sqlite3.Row, columns, defaults):
+    return {c:(d if row[c] is None else row[c]) for (c,d) in zip(columns,defaults)}
+
+@app.route("/uploads/<filename_local>")
+def uploads(filename_local):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename_local)
 
 
 @app.route("/contact", methods=['GET','POST'])

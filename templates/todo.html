@@ -7,6 +7,7 @@
 
 {% block body %}
 <div class="content">
+    {% if last_task.TaskId == 0 %}{% set update=False %}{% else %}{% set update=True %}{% endif %}
     <div class="form">
         <form action="{{ request_path }}" method="POST" enctype="multipart/form-data">
             <label for="Content">Task Description</label>
@@ -15,15 +16,10 @@
             <input type="checkbox" name="Completed" id="completed" {% if last_task['Completed'] == 1 %}checked{% endif %}>
             <br>
             <label for="SourceFileName">Select a file:</label>
-            <br><br>
+            <br>
             <input type="file" name="SourceFileName" id="SourceFileName" value="{{ last_task['SourceFileName'] }}">
             <br><br>
-            <label for="Description">Image Description</label>
-            <br>
-            <input type="text" name="Description" id="Description" value="{{ last_task['Description'] }}">
-            <br>
-    
-            <button type="submit">{% if last_task.TaskId is defined %}Update Task{% else %}Add Task{% endif %}</button>
+            <button type="submit">{% if update==True %}Update Task{% else %}Add Task{% endif %}</button>
         </form>
         {% with messages = get_flashed_messages() %}
         {% if messages %}
@@ -52,10 +48,9 @@
             <tr>
                 <td>
                     {% if task['LocalFileName'] %}
-                    <img src="{{ url_for('uploads', local_filename=task['LocalFileName']) }}" width="150px" alt="{{ task['Description'] }}"><br>
-                    <p>{{ task['Description'] }}</p>
-                    <p>{{ task['SourceFileName'] }}</p>
+                    <img src="{{ url_for('uploads', filename_local=task['LocalFileName']) }}" width="100px" alt="{{ task['Description'] }}"><br>
                     {% endif %}
+                    <p>{{ task['SourceFileName'] }}</p>
                 </td>                           
                 <td>{{ task['Content' ]}}</td>
                 <td><input type="checkbox" disabled {% if task['Completed'] == 1 %}checked{% endif %}></td>
