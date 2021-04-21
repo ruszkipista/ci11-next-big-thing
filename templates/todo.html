@@ -7,7 +7,7 @@
 
 {% block body %}
 <div class="content">
-    {% if last_task.TaskId == 0 %}{% set update=False %}{% else %}{% set update=True %}{% endif %}
+    {% if last_task['TaskId'] == 0 %}{% set update=False %}{% else %}{% set update=True %}{% endif %}
     <div class="form">
         <form action="{{ request_path }}" method="POST" enctype="multipart/form-data">
             <label for="Content">Task Description</label>

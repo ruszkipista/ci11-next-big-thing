@@ -145,41 +145,52 @@ def about():
 
 @app.route("/todo", methods=['GET','POST'])
 def todo():
+    if request.method == 'POST':
+        save_task_to_db(request, None)
+
     # create an empty task
     task = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
-    if request.method == 'POST':
-        columns = ['Content','Completed']
-        values  = [request.form.get(column,'') for column in columns]
-        # following instructions from https://flask.palletsprojects.com/en/1.1.x/patterns/fileuploads/
-        data = request.files['SourceFileName']
-        if data:
-            filename_source = secure_filename(data.filename)
-            extension = filename_source.rsplit('.', 1)[1] if '.' in filename_source else ''
-            if extension in app.config["UPLOAD_EXTENSIONS"]:
-                filename_local = str(time.time()).replace('.','')+'.'+extension
-        else:
-            filename_source = ''
-            filename_local  = ''
-        columns += ['SourceFileName','LocalFileName']
-        values  += [filename_source, filename_local]
-        # checkbox value conversion to integer
-        values[1] = 1 if values[1]=="on" else 0
-        task = create_row(columns, values)
-        row_id = insert_row(app.config["TABLE_TODOS"], task)
-        if type(row_id) == int:
-            if data:
-                data.save(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
-            task = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
-            flash("Record successfully added")
-        else:
-            flash(f"Error in insert operation: {row_id}")
-
-    task  = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
+    task = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
+    # get all tasks from DB
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
     tasks = [convertFromDBtoPrint(t, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
     if not tasks:
         flash("There are no tasks. Create one above!")
     return render_template("todo.html", page_title="Task Master", request_path=request.path, tasks=tasks, last_task=task)
+
+
+def save_task_to_db(request, task_id:int):
+    columns = ['Content','Completed']
+    values  = [request.form.get(column,'') for column in columns]
+    # checkbox value conversion to integer
+    values[1] = 1 if values[1]=="on" else 0
+
+    # following instructions from https://flask.palletsprojects.com/en/1.1.x/patterns/fileuploads/
+    filename_source = ''
+    filename_local  = ''
+    data = request.files['SourceFileName']
+    if data:
+        filename_source = secure_filename(data.filename)
+        extension = filename_source.rsplit('.', 1)[1] if '.' in filename_source else ''
+        if extension in app.config["UPLOAD_EXTENSIONS"]:
+            filename_local = str(time.time()).replace('.','')+'.'+extension
+    if filename_local:
+        columns += ['SourceFileName','LocalFileName']
+        values  += [filename_source, filename_local]
+
+    task = create_row(columns, values)
+    if task_id:
+        row_id = update_row(app.config["TABLE_TODOS"], task, task_id)
+    else:
+        row_id = insert_row(app.config["TABLE_TODOS"], task)
+    if type(row_id) == int:
+        if data:
+            data.save(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
+        task = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
+        flash(f"One record successfully {'updated' if task_id else 'added'}")
+    else:
+        flash(f"Error in {'update' if task_id else 'insert'} operation: {row_id}")
+    return task
 
 
 @app.route("/todo/delete/<int:task_id>")
@@ -207,19 +218,10 @@ def update_task(task_id):
         return redirect("/todo")
 
     if request.method == 'POST':
-        columns = ('Content','Completed')
-        values  = [request.form.get(column, '') for column in columns]
-        # checkbox value conversion to integer
-        values[1] = 1 if values[1]=="on" else 0
-        task = create_row(columns, values)
-        result = update_row(app.config["TABLE_TODOS"], task, task_id)
-        if type(result) == int:
-            flash(f"{result} Record updated")
-        else:
-            flash(f"Error in update operation: {result}")
+        task = save_task_to_db(request, task_id)
         return redirect("/todo")
 
-    task = convertFromDBtoPrint(task,app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
+    task = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
     tasks = [convertFromDBtoPrint(t,app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
     return render_template("todo.html", page_title="Task Master", tasks=tasks, last_task=task)
