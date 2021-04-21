@@ -168,20 +168,21 @@ def todo():
             columns = ('Content','Completed','Description','SourceFileName', 'LocalFileName')
             task = create_row(columns, ("",0,"","",""))
         else:
-            flash("Error in insert operation:", row_id)
+            flash(f"Error in insert operation: {row_id}")
 
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
-    return render_template("todo.html", page_title="Task Master", 
-                            request_path=request.path, tasks=tasks, last_task=task)
+    if not tasks:
+        flash("There are no tasks. Create one above!")
+    return render_template("todo.html", page_title="Task Master", request_path=request.path, tasks=tasks, last_task=task)
 
 
 @app.route("/todo/delete/<int:task_id>")
 def delete_task(task_id):
-    result = delete_row('Todos', task_id)
+    result = delete_row(app.config['TABLE_TODOS'], task_id)
     if type(result) == int:
         flash(f"{result} Record deleted")
     else:
-        flash("Error in delete operation: ", result)
+        flash(f"Error in delete operation: {result}")
     return redirect('/todo')
 
 
@@ -202,7 +203,7 @@ def update_task(task_id):
         if type(result) == int:
             flash(f"{result} Record updated")
         else:
-            flash("Error in update operation: ", result)
+            flash(f"Error in update operation: {result}")
         return redirect("/todo")
 
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
