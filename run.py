@@ -20,8 +20,6 @@ app.config["SQLITE_SCHEMA"]  = os.environ.get("SQLITE_SCHEMA", "./data/schema.sq
 app.config["SQLITE_CONTENT"] = os.environ.get("SQLITE_CONTENT","./data/content.sql")
 app.config["TABLE_TODOS"]    = "Todos"
 app.config["TABLE_TODOV"]    = "TodosView"
-app.config["TABLE_IMAGES"]   = "Images"
-app.config["TABLE_IMAGEV"]   = "ImagesView"
 app.config["UPLOAD_FOLDER"]  = os.environ.get("UPLOAD_FOLDER", "./data/")
 app.config["UPLOAD_EXTENSIONS"] = set(['png', 'jpg', 'jpeg', 'gif'])
 
@@ -151,16 +149,30 @@ def todo():
         # checkbox value conversion to integer
         values[1] = 1 if values[1]=="on" else 0
         task = create_row(columns, values)
-        result = insert_row(app.config["TABLE_TODOS"], task)
-        if type(result) == int:
+        row_id = insert_row(app.config["TABLE_TODOS"], task)
+        if type(row_id) == int:
+            # following instructions from https://flask.palletsprojects.com/en/1.1.x/patterns/fileuploads/
+            data = request.files['SourceFileName']
+            if data:
+                filename_source = secure_filename(data.filename)
+                extension = filename_source.rsplit('.', 1)[1] if '.' in filename_source else ''
+                if extension in app.config["UPLOAD_EXTENSIONS"]:
+                    filename_local = str(row_id)+'.'+extension
+                    data.save(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
+                    columns = ('Description','SourceFileName', 'LocalFileName')
+                    values =  (request.form['Description'], filename_source, filename_local)
+                    image = create_row(columns, values)
+                    result = update_row(app.config["TABLE_TODOS"], image, row_id)
+
             flash("Record successfully added")
-            task = create_row(columns, ("",0))
+            columns = ('Content','Completed','Description','SourceFileName', 'LocalFileName')
+            task = create_row(columns, ("",0,"","",""))
         else:
-            flash("Error in insert operation:", result)
+            flash("Error in insert operation:", row_id)
 
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
     return render_template("todo.html", page_title="Task Master", 
-                            page_url=request.path, tasks=tasks, last_task=task)
+                            request_path=request.path, tasks=tasks, last_task=task)
 
 
 @app.route("/todo/delete/<int:task_id>")
@@ -192,44 +204,13 @@ def update_task(task_id):
         else:
             flash("Error in update operation: ", result)
         return redirect("/todo")
-    print(task)
+
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
     return render_template("todo.html", page_title="Task Master", tasks=tasks, last_task=task)
 
 @app.route("/uploads/<local_filename>")
 def uploads(local_filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], local_filename)
-
-@app.route("/gallery/update/<int:image_id>")
-def update_image(image_id):
-    pass
-
-@app.route("/gallery/delete/<int:image_id>")
-def delete_image(image_id):
-    pass
-
-# following instructions from https://flask.palletsprojects.com/en/1.1.x/patterns/fileuploads/
-@app.route("/gallery", methods=['GET','POST'])
-def gallery():
-    image={}
-    if request.method == 'POST':
-        data = request.files['SourceFileName']
-        if data:
-            filename_source = secure_filename(data.filename)
-            columns = ('Description','SourceFileName', 'LocalFileName')
-            values  = (request.form['Description'], filename_source,'')
-            image = create_row(columns, values)
-            image_id = insert_row(app.config["TABLE_IMAGES"], image)
-            if type(image_id) == int:
-                extension = filename_source.rsplit('.', 1)[1] if '.' in filename_source else ''
-                if extension in app.config["UPLOAD_EXTENSIONS"]:
-                    filename_local = str(image_id)+'.'+extension
-                    data.save(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
-                    image = create_row(('LocalFileName',), (filename_local,))
-                    result = update_row(app.config["TABLE_IMAGES"], image, image_id)
-
-    images = query_db(f"SELECT * FROM {app.config['TABLE_IMAGEV']} ORDER BY rowid DESC;")
-    return render_template("gallery.html", page_title="Gallery", images=images, last_image=image)
 
 
 @app.route("/contact", methods=['GET','POST'])
