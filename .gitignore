@@ -7,4 +7,6 @@ __pycache__/
 node_modules/
 env/
 .sqlite
-
+data/*.png
+data/*.jpg
+data/*.jpeg
