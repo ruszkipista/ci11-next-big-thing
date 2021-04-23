@@ -1,34 +1,26 @@
 body, html {
-    margin: 0;
     font-family: Verdana, Geneva, Tahoma, sans-serif;
 }
 
+ul {
+    padding: 0;
+}
 nav > ul > li {
     display: inline-block;
-}
-
-h1, h2, h3, h4 {
-    text-align: center;
+    padding: 5px;
 }
 
 .content {
     margin: 0 auto;
-    width: 400px;
 }
 
-table, td, th {
+td, th {
+    margin: 0;
     border: 1px solid #aaa;
-}
-
-td {
     text-align: center;
     padding: 5px;
 }
 
 .form {
     margin-top: 20px;
-}
-
-#content {
-    width: 70%;
 }

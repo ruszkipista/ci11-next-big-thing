@@ -46,27 +46,19 @@ app.config["MONGO_URI"] = f"mongodb+srv:" + \
 #=====================
 import sqlite3
 # SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
-def get_db():
-    db = getattr(g, '_database', None)
+def get_sqlite_db():
+    db = getattr(g, '_database_sqlite', None)
     if db is None:
-        db = g._database = sqlite3.connect(app.config["SQLITE_DB"])
+        db = g._database_sqlite = sqlite3.connect(app.config["SQLITE_DB"])
         # use built-in row translator
         db.row_factory = sqlite3.Row
     return db
 
 
-# SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
-@app.teardown_appcontext
-def close_connection(exception):
-    db = getattr(g, '_database', None)
-    if db is not None:
-        db.close()
-
-
 # inspired by SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
 def init_db(load_content=False):
     with app.app_context():
-        db = get_db()
+        db = get_sqlite_db()
         with app.open_resource(app.config["SQLITE_SCHEMA"], mode='r') as f:
             db.cursor().executescript(f.read())
         with app.open_resource(app.config["SQLITE_CONTENT"], mode='r') as f:
@@ -76,7 +68,7 @@ def init_db(load_content=False):
 
 # inspired by SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/        
 def query_db(query, args=(), one=False):
-    cur = get_db().execute(query, args)
+    cur = get_sqlite_db().execute(query, args)
     rv = cur.fetchone() if one else cur.fetchall()
     cur.close()
     return (rv[0] if type(rv)==list else rv) if one else rv
@@ -85,7 +77,7 @@ def query_db(query, args=(), one=False):
 # inspired by Example 1 from https://www.programcreek.com/python/example/3926/sqlite3.Row
 def create_row(columns, values):
     """ convert column names and corresponding values into sqlite3.Row type object """
-    cur = get_db().cursor()
+    cur = get_sqlite_db().cursor()
     if not cur:
         return None
     # generate "? AS <column>, ..."
@@ -96,7 +88,7 @@ def create_row(columns, values):
 
 def insert_row(table:str, row:sqlite3.Row):
     """ insert one row into given table """
-    cur = get_db().cursor()
+    cur = get_sqlite_db().cursor()
     if not cur:
         return 0
     try:
@@ -117,7 +109,7 @@ def insert_row(table:str, row:sqlite3.Row):
 
 def delete_row(table:str, id:int):
     """ delete one row by <rowid> from given table """
-    cur = get_db().cursor()
+    cur = get_sqlite_db().cursor()
     if not cur:
         return ""
     try:
@@ -132,7 +124,7 @@ def delete_row(table:str, id:int):
 
 def update_row(table:str, row:sqlite3.Row, id:int):
     """ update one row by <rowid> from given table """
-    cur = get_db().cursor()
+    cur = get_sqlite_db().cursor()
     if not cur:
         return ""
     try:
@@ -146,16 +138,6 @@ def update_row(table:str, row:sqlite3.Row, id:int):
     except sqlite3.Error as error:
         cur.connection.rollback()
         return error
-
-# MongoDB helpers
-#=================
-def mongo_connect(url, db_name):
-    try:
-        conn = pymongo.MongoClient(url)
-        return conn
-    except pymongo.errors.ConnectionFailure as e:
-        print(f"Could not connect to MongoDB {db_name}: {e}")
-
 
 # App routing
 #==============
@@ -280,12 +262,25 @@ def contact():
         flash(f"Thanks {request.form.get('name')}, we have received your message!")
     return render_template("contact.html", page_title="Contact")
 
+
+# MongoDB helpers
+#=================
+def get_mongo_coll(collection):
+    conn = getattr(g, '_database_mongo', None)
+    if conn is None:
+        try:
+            conn = g._database_mongo = pymongo.MongoClient(app.config["MONGO_URI"])
+        except pymongo.errors.ConnectionFailure as e:
+            print(f"Could not connect to MongoDB {app.config['MONGO_DB_NAME']}: {e}")
+            return None
+    return conn[app.config["MONGO_DB_NAME"]][collection]
+
+
 # MongoDB routes
 #=================
 @app.route("/celebs")
 def celebs():
-    conn = mongo_connect(app.config["MONGO_URI"], app.config["MONGO_DB_NAME"])
-    coll = conn[app.config["MONGO_DB_NAME"]][app.config["MONGO_COLLECTION"]]
+    coll = get_mongo_coll(app.config["MONGO_COLLECTION"])
     celebs = coll.find()
     return render_template("celebs.html", page_title="Celebrities", celebs=celebs, last_celeb={})
 
@@ -298,6 +293,18 @@ def update_celeb(celeb_id):
 @app.route("/celebs/delete/<celeb_id>")
 def delete_celeb(celeb_id):
     pass
+
+
+# SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, '_database_sqlite', None)
+    if db is not None:
+        db.close()
+
+    db = getattr(g, '_database_mongo', None)
+    if db is not None:
+        db.close()
 
 # Run the App
 #=================
