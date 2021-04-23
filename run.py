@@ -5,6 +5,7 @@ import time
 
 #!pip install dnspython pymongo
 import pymongo
+from bson.objectid import ObjectId
 
 # env.py should exist only in Development
 if os.path.exists("env.py"):
@@ -191,8 +192,6 @@ def save_task_to_db(request, task_old):
     values[1] = 1 if values[1]=="on" else 0
 
     # following instructions from https://flask.palletsprojects.com/en/1.1.x/patterns/fileuploads/
-    filename_source = ''
-    filename_local  = ''
     data = request.files['SourceFileName']
     if data:
         filename_source = secure_filename(data.filename)
@@ -276,18 +275,73 @@ def get_mongo_coll(collection):
     return conn[app.config["MONGO_DB_NAME"]][collection]
 
 
+def save_celeb_to_db(request, celeb_old):
+    columns = ('first','last','dob','gender','hair_color','occupation','nationality')
+    celeb_new  = {column:request.form.get(column,'') for column in columns if request.form.get(column,'') != celeb_old[column]}
+    # string to date conversion
+    
+    # following instructions from https://flask.palletsprojects.com/en/1.1.x/patterns/fileuploads/
+    data = request.files['SourceFileName']
+    if data:
+        filename_source = secure_filename(data.filename)
+        extension = filename_source.rsplit('.', 1)[1] if '.' in filename_source else ''
+        if extension in app.config["UPLOAD_EXTENSIONS"]:
+            # generate a new image file name
+            filename_local = str(time.time()).replace('.','')+'.'+extension
+            celeb_new['SourceFileName'] = filename_source
+            celeb_new['LocalFileName']  = filename_local
+    coll = get_mongo_coll(app.config["MONGO_COLLECTION"])
+    try:
+        if celeb_old:
+            print(celeb_new, type(celeb_old['_id']))
+            coll.update_one({'_id':celeb_old['_id']}, {"$set":celeb_new})
+        else:
+            coll.insert_one(celeb_new)
+        # update/insert was successful
+        # if data:
+        #     # save new file
+        #     data.save(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
+        #     # delete old file
+        #     if celeb_old and celeb_old['LocalFileName']:
+        #         try:
+        #             os.remove(os.path.join(app.config["UPLOAD_FOLDER"], celeb_old['LocalFileName']))
+        #         except FileNotFoundError as error:
+        #             flash(f"Could not delete {celeb_old['SourceFileName']}: {error}")
+
+        # create empty celeb - clear the input fields, because the update was OK
+        celeb_new = {}
+        flash(f"One document successfully {'updated' if celeb_old else 'added'}")
+    except:
+        flash(f"Error in {'update' if celeb_old else 'insert'} operation!")
+    return celeb_new
+
 # MongoDB routes
 #=================
-@app.route("/celebs")
+@app.route("/celebs", methods=['GET','POST'])
 def celebs():
+    if request.method == 'POST':
+        celeb = save_celeb_to_db(request, None)
+    else:
+        celeb = {}
     coll = get_mongo_coll(app.config["MONGO_COLLECTION"])
     celebs = coll.find()
-    return render_template("celebs.html", page_title="Celebrities", celebs=celebs, last_celeb={})
+    return render_template("celebs.html", page_title="Celebrities", celebs=celebs, last_celeb=celeb)
 
 
 @app.route("/celebs/update/<celeb_id>", methods=['GET','POST'])
 def update_celeb(celeb_id):
-    pass
+    coll = get_mongo_coll(app.config["MONGO_COLLECTION"])
+    celeb = coll.find_one({"_id":ObjectId(celeb_id)})
+    if not celeb:
+        flash(f"Document {celeb_id} does not exist")
+        return redirect("/celebs")
+
+    if request.method == 'POST':
+        celeb = save_celeb_to_db(request, celeb)
+        return redirect("/celebs")
+
+    celebs = coll.find()
+    return render_template("celebs.html", page_title="Celebrities", celebs=celebs, last_celeb=celeb)
 
 
 @app.route("/celebs/delete/<celeb_id>")

@@ -6,13 +6,25 @@
 
 {% block body %}
 <div class="content">
-    {% if last_celeb['CelebId'] == 0 %}{% set update=False %}{% else %}{% set update=True %}{% endif %}
+    {% if last_celeb %}{% set update=True %}{% else %}{% set update=False %}{% endif %}
     <div class="form">
         <form action="{{ request_path }}" method="POST" enctype="multipart/form-data">
             <label for="first">First Name</label>
-            <input type="text" name="first" id="first" value="{{ last_celeb['first'] }}"><br>
+            <input type="text" name="first" id="first" value="{{ last_celeb['first'] }}">
             <label for="last">Last Name</label>
-            <input type="text" name="last" id="last" value="{{ last_celeb['last'] }}"><br>
+            <input type="text" name="last" id="last" value="{{ last_celeb['last'] }}">
+            <label for="dob">Date of Birth</label>
+            <input type="date" name="dob" id="dob" value="{{ last_celeb['dob'] }}">
+            <br>
+            <label for="gender">Gender</label>
+            <input type="text" name="gender" id="gender" value="{{ last_celeb['gender'] }}">
+            <label for="hair_color">Hair Color</label>
+            <input type="text" name="hair_color" id="hair_color" value="{{ last_celeb['hair_color'] }}">
+            <label for="occupation">Occupation</label>
+            <input type="text" name="occupation" id="occupation" value="{{ last_celeb['occupation'] }}"><br>
+            <label for="nationality">Nationality</label>
+            <input type="text" name="nationality" id="nationality" value="{{ last_celeb['nationality'] }}"><br>
+
             <br>
             <label for="SourceFileName">Select a file:</label>
             <br>
