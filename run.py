@@ -3,6 +3,9 @@ from flask import Flask, render_template, g, request, redirect, flash, send_from
 from werkzeug.utils import secure_filename
 import time
 
+#!pip install dnspython pymongo
+import pymongo
+
 # env.py should exist only in Development
 if os.path.exists("env.py"):
     import env
@@ -28,18 +31,18 @@ app.config["TABLE_TODOV"]    = "TodosView"
 app.config["COLUMNS_TODOS"]  = ('TaskId','Content','Completed','SourceFileName','LocalFileName','DatTimIns', 'DatTimUpd')
 app.config["DEFAULTS_TODOS"] = (0,'','','','','','')
 # MongoDB parameters
-app.config["MONGO_DB_NAME"]        = os.environ.get("MONGO_DB_NAME")
-app.config["MONGO_DB_CLUSTER"]     = os.environ.get("MONGO_DB_CLUSTER")
-app.config["MONGO_DB_COLLECTION"]  = os.environ.get("MONGO_DB_COLLECTION")
+app.config["MONGO_DB_NAME"]    = os.environ.get("MONGO_DB_NAME")
+app.config["MONGO_CLUSTER"]    = os.environ.get("MONGO_CLUSTER")
+app.config["MONGO_COLLECTION"] = os.environ.get("MONGO_COLLECTION")
 app.config["MONGO_URI"] = f"mongodb+srv:" + \
                           f"//{os.environ.get('MONGO_DB_USER')}" + \
                           f":{os.environ.get('MONGO_DB_PASS')}" + \
-                          f"@{app.config['MONGO_DB_CLUSTER']}" + \
+                          f"@{app.config['MONGO_CLUSTER']}" + \
                           f".ueffo.mongodb.net" + \
                           f"/{app.config['MONGO_DB_NAME']}" + \
                           f"?retryWrites=true&w=majority"
 
-# SQLite3 helpers
+# SQLite3 DB helpers
 #=====================
 import sqlite3
 # SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
@@ -144,6 +147,16 @@ def update_row(table:str, row:sqlite3.Row, id:int):
         cur.connection.rollback()
         return error
 
+# MongoDB helpers
+#=================
+def mongo_connect(url, db_name):
+    try:
+        conn = pymongo.MongoClient(url)
+        print(f"{db_name} is connected")
+        return conn
+    except pymongo.errors.ConnectionFailure as e:
+        print(f"Could not connect to MongoDB {db_name}: {e}")
+
 
 # App routing
 #==============
@@ -157,8 +170,8 @@ def about():
     return render_template("about.html", page_title="About")
 
 
-@app.route("/todo_sqlite", methods=['GET','POST'])
-def todo_sqlite():
+@app.route("/todos", methods=['GET','POST'])
+def todos():
     if request.method == 'POST':
         task = save_task_to_db(request, None)
     else:
@@ -170,24 +183,24 @@ def todo_sqlite():
     tasks = [convertFromDBtoPrint(t, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
     if not tasks:
         flash("There are no tasks. Create one above!")
-    return render_template("todo_sqlite.html", page_title="Task Master", request_path=request.path, tasks=tasks, last_task=task)
+    return render_template("todos.html", page_title="Task Master", request_path=request.path, tasks=tasks, last_task=task)
 
 
-@app.route("/todo_sqlite/update/<int:task_id>", methods=['GET','POST'])
+@app.route("/todos/update/<int:task_id>", methods=['GET','POST'])
 def update_task(task_id):
     task = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} WHERE rowid=?;", (task_id,), one=True)
     if task is None:
         flash(f"Task {task_id} does not exist")
-        return redirect("/todo_sqlite")
+        return redirect("/todos")
 
     if request.method == 'POST':
         task = save_task_to_db(request, task)
-        return redirect("/todo_sqlite")
+        return redirect("/todos")
 
     task = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
     tasks = [convertFromDBtoPrint(t,app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
-    return render_template("todo_sqlite.html", page_title="Task Master", tasks=tasks, last_task=task)
+    return render_template("todos.html", page_title="Task Master", tasks=tasks, last_task=task)
 
 
 def save_task_to_db(request, task_old):
@@ -234,7 +247,7 @@ def save_task_to_db(request, task_old):
     return task_new
 
 
-@app.route("/todo_sqlite/delete/<int:task_id>")
+@app.route("/todos/delete/<int:task_id>")
 def delete_task(task_id):
     task = query_db(f"SELECT SourceFileName, LocalFileName FROM {app.config['TABLE_TODOS']} WHERE TaskId=?;", (task_id,), one=True)
     if task is None:
@@ -251,7 +264,7 @@ def delete_task(task_id):
             flash(f"{result} Record deleted")
         else:
             flash(f"Error in delete operation: {result}")
-    return redirect('/todo_sqlite')
+    return redirect('/todos')
 
 
 def convertFromDBtoPrint(row:sqlite3.Row, columns, defaults):
@@ -268,12 +281,21 @@ def contact():
         flash(f"Thanks {request.form.get('name')}, we have received your message!")
     return render_template("contact.html", page_title="Contact")
 
+# MongoDB routes
+#=================
+@app.route("/celebs")
+def celebs():
+        return render_template("celebs.html", page_title="Celebrities", celebs=[], last_celeb={})
 
 # Run the App
 #=================
 if __name__ == "__main__":
     if app.config["SQLITE_INIT"]:
         init_db()
+
+    conn = mongo_connect(app.config["MONGO_URI"], app.config["MONGO_DB_NAME"])
+    coll = conn[app.config["MONGO_DB_NAME"]][app.config["MONGO_COLLECTION"]]
+
     app.run(
         host  = app.config["FLASK_IP"],
         port  = app.config["FLASK_PORT"],

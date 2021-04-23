@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block head %}
+<title>Celebrities</title>
+{% endblock %}
+
+{% block body %}
+<div class="content">
+    {% if last_celeb['CelebId'] == 0 %}{% set update=False %}{% else %}{% set update=True %}{% endif %}
+    <div class="form">
+        <form action="{{ request_path }}" method="POST" enctype="multipart/form-data">
+            <label for="Content">Celeb Description</label>
+            <br>
+            <input type="text" name="Content" id="Content" value="{{ last_celeb['Content'] }}">
+            <input type="checkbox" name="Completed" id="completed" {% if last_celeb['Completed'] == 1 %}checked{% endif %}>
+            <br>
+            <label for="SourceFileName">Select a file:</label>
+            <br>
+            <input type="file" name="SourceFileName" id="SourceFileName" value="{{ last_celeb['SourceFileName'] }}">
+            <br><br>
+            <button type="submit">{% if update==True %}Update Celeb{% else %}Add Celeb{% endif %}</button>
+        </form>
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul>
+            {% for message in messages%}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    {% if celebs|length < 1 %}
+    <br>
+    {% else %}
+    <table>
+        <tr>
+            <th>Image</th>
+            <th>Celeb</th>
+            <th>Completed</th>
+            <th>Added</th>
+            <th>Modified</th>
+            <th>Actions</th>
+        </tr>
+        {% for celeb in celebs %}
+            <tr>
+                <td>
+                    {% if celeb['LocalFileName'] %}
+                    <img src="{{ url_for('uploads', filename_local=celeb['LocalFileName']) }}" width="100px" alt="{{ celeb['Description'] }}"><br>
+                    {% endif %}
+                    <p>{{ celeb['SourceFileName'] }}</p>
+                </td>                           
+                <td>{{ celeb['Content' ]}}</td>
+                <td><input type="checkbox" disabled {% if celeb['Completed'] == 1 %}checked{% endif %}></td>
+                <td>{{ celeb['DatTimIns'] }}</td>
+                <td>{{ celeb['DatTimUpd'] }}</td>
+                <td>
+                    <a href="{{ url_for('delete_celeb', celeb_id=celeb['CelebId']) }}">Delete</a>
+                    <br>
+                    <a href="{{ url_for('update_celeb', celeb_id=celeb['CelebId']) }}">Update</a>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+</div>
+{% endblock %}
