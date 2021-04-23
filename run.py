@@ -11,10 +11,10 @@ app = Flask(__name__)
 
 # take app configuration from OS environment variables
 app.secret_key               = os.environ.get("FLASK_SECRET_KEY")            # => Heroku Congig Vars
-app.config["FLASK_IP"]       = os.environ.get("FLASK_IP",      "127.0.0.1")
+app.config["FLASK_IP"]       = os.environ.get("FLASK_IP",      "0.0.0.0")
 # the source 'PORT' name is mandated by Heroku app deployment
-app.config["FLASK_PORT"]     = int(os.environ.get("PORT",      "5500"))
-app.config["FLASK_DEBUG"]    = os.environ.get("FLASK_DEBUG",   "True").lower() in {'1','true','t','yes','y'}
+app.config["FLASK_PORT"]     = int(os.environ.get("PORT"))
+app.config["FLASK_DEBUG"]    = os.environ.get("FLASK_DEBUG",   "False").lower() in {'1','true','t','yes','y'}
 app.config["SQLITE_INIT"]    = os.environ.get("SQLITE_INIT",   "False").lower() in {'1','true','t','yes','y'}# => Heroku Congig Vars
 app.config["SQLITE_DB"]      = os.environ.get("SQLITE_DB",     "./data/taskmaster.sqlite") 
 app.config["SQLITE_SCHEMA"]  = os.environ.get("SQLITE_SCHEMA", "./data/schema.sql")
@@ -257,6 +257,6 @@ if __name__ == "__main__":
     if app.config["SQLITE_INIT"]:
         init_db()
     app.run(
-        host=app.config["FLASK_IP"],
-        port=app.config["FLASK_PORT"],
+        host  = app.config["FLASK_IP"],
+        port  = app.config["FLASK_PORT"],
         debug = app.config["FLASK_DEBUG"])
