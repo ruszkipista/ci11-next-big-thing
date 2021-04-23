@@ -10,7 +10,7 @@ if os.path.exists("env.py"):
 app = Flask(__name__)
 
 # take app configuration from OS environment variables
-app.secret_key               = os.environ.get("FLASK_FLASH_KEY")            # => Heroku Congig Vars
+app.secret_key               = os.environ.get("FLASK_SECRET_KEY")            # => Heroku Congig Vars
 app.config["FLASK_IP"]       = os.environ.get("FLASK_IP",      "127.0.0.1")
 # the source 'PORT' name is mandated by Heroku app deployment
 app.config["FLASK_PORT"]     = int(os.environ.get("PORT",      "5500"))
@@ -25,6 +25,7 @@ app.config["COLUMNS_TODOS"]  = ('TaskId','Content','Completed','SourceFileName',
 app.config["DEFAULTS_TODOS"] = (0,'','','','','','')
 app.config["UPLOAD_FOLDER"]  = os.environ.get("UPLOAD_FOLDER", "./data/")
 app.config["UPLOAD_EXTENSIONS"] = set(['png', 'jpg', 'jpeg', 'gif'])
+
 
 # SQLite3 helpers
 #=====================
@@ -113,6 +114,7 @@ def delete_row(table:str, id:int):
         cur.connection.rollback()
         return error
 
+
 def update_row(table:str, row:sqlite3.Row, id:int):
     """ update one row by <rowid> from given table """
     cur = get_db().cursor()
@@ -123,13 +125,13 @@ def update_row(table:str, row:sqlite3.Row, id:int):
         values  = tuple([row[column] for column in columns]+[id])
         # generate "<column>=?,..." list
         set_list = ",".join([column+"=? " for column in columns])
-        query=f"UPDATE {table} SET {set_list} WHERE rowid=?;"
-        cur.execute(query, values)
+        cur.execute(f"UPDATE {table} SET {set_list} WHERE rowid=?;", values)
         cur.connection.commit()
         return cur.rowcount
     except sqlite3.Error as error:
         cur.connection.rollback()
         return error
+
 
 # App routing
 #==============
@@ -146,10 +148,10 @@ def about():
 @app.route("/todo", methods=['GET','POST'])
 def todo():
     if request.method == 'POST':
-        save_task_to_db(request, None)
-
-    # create an empty task
-    task = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
+        task = save_task_to_db(request, None)
+    else:
+        # create an empty task
+        task = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
     task = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
     # get all tasks from DB
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
@@ -159,7 +161,24 @@ def todo():
     return render_template("todo.html", page_title="Task Master", request_path=request.path, tasks=tasks, last_task=task)
 
 
-def save_task_to_db(request, task_id:int):
+@app.route("/todo/update/<int:task_id>", methods=['GET','POST'])
+def update_task(task_id):
+    task = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} WHERE rowid=?;", (task_id,), one=True)
+    if task is None:
+        flash(f"Task {task_id} does not exist")
+        return redirect("/todo")
+
+    if request.method == 'POST':
+        task = save_task_to_db(request, task)
+        return redirect("/todo")
+
+    task = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
+    tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
+    tasks = [convertFromDBtoPrint(t,app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
+    return render_template("todo.html", page_title="Task Master", tasks=tasks, last_task=task)
+
+
+def save_task_to_db(request, task_old):
     columns = ['Content','Completed']
     values  = [request.form.get(column,'') for column in columns]
     # checkbox value conversion to integer
@@ -173,24 +192,31 @@ def save_task_to_db(request, task_id:int):
         filename_source = secure_filename(data.filename)
         extension = filename_source.rsplit('.', 1)[1] if '.' in filename_source else ''
         if extension in app.config["UPLOAD_EXTENSIONS"]:
+            # generate a new image file name
             filename_local = str(time.time()).replace('.','')+'.'+extension
-    if filename_local:
-        columns += ['SourceFileName','LocalFileName']
-        values  += [filename_source, filename_local]
+            columns += ['SourceFileName','LocalFileName']
+            values  += [filename_source, filename_local]
 
-    task = create_row(columns, values)
-    if task_id:
-        row_id = update_row(app.config["TABLE_TODOS"], task, task_id)
+    task_new = create_row(columns, values)
+    if task_old:
+        row_id = update_row(app.config["TABLE_TODOS"], task_new, task_old['TaskId'])
     else:
-        row_id = insert_row(app.config["TABLE_TODOS"], task)
+        row_id = insert_row(app.config["TABLE_TODOS"], task_new)
+    # update was successful
     if type(row_id) == int:
+        # save new file
         if data:
             data.save(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
-        task = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
-        flash(f"One record successfully {'updated' if task_id else 'added'}")
+        # delete old file
+        if task_old and task_old['LocalFileName']:
+            os.remove(os.path.join(app.config["UPLOAD_FOLDER"], task_old['LocalFileName']))
+
+        # create empty task - this will be displayed, because the update was OK
+        task_new = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
+        flash(f"One record successfully {'updated' if task_old else 'added'}")
     else:
-        flash(f"Error in {'update' if task_id else 'insert'} operation: {row_id}")
-    return task
+        flash(f"Error in {'update' if task_old else 'insert'} operation: {row_id}")
+    return task_new
 
 
 @app.route("/todo/delete/<int:task_id>")
@@ -209,22 +235,6 @@ def delete_task(task_id):
             flash(f"Error in delete operation: {result}")
     return redirect('/todo')
 
-
-@app.route("/todo/update/<int:task_id>", methods=['GET','POST'])
-def update_task(task_id):
-    task = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} WHERE rowid=?;", (task_id,), one=True)
-    if task is None:
-        flash(f"Task {task_id} does not exist")
-        return redirect("/todo")
-
-    if request.method == 'POST':
-        task = save_task_to_db(request, task_id)
-        return redirect("/todo")
-
-    task = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
-    tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
-    tasks = [convertFromDBtoPrint(t,app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
-    return render_template("todo.html", page_title="Task Master", tasks=tasks, last_task=task)
 
 def convertFromDBtoPrint(row:sqlite3.Row, columns, defaults):
     return {c:(d if row[c] is None else row[c]) for (c,d) in zip(columns,defaults)}
