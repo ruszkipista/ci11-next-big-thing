@@ -207,9 +207,12 @@ def save_task_to_db(request, task_old):
         # save new file
         if data:
             data.save(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
-        # delete old file
-        if task_old and task_old['LocalFileName']:
-            os.remove(os.path.join(app.config["UPLOAD_FOLDER"], task_old['LocalFileName']))
+            # delete old file
+            if task_old and task_old['LocalFileName']:
+                try:
+                    os.remove(os.path.join(app.config["UPLOAD_FOLDER"], task_old['LocalFileName']))
+                except FileNotFoundError as error:
+                    flash(f"Could not delete {task_old['SourceFileName']}: {error}")
 
         # create empty task - this will be displayed, because the update was OK
         task_new = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
@@ -221,7 +224,7 @@ def save_task_to_db(request, task_old):
 
 @app.route("/todo/delete/<int:task_id>")
 def delete_task(task_id):
-    task = query_db(f"SELECT LocalFileName FROM {app.config['TABLE_TODOS']} WHERE TaskId=?;", (task_id,), one=True)
+    task = query_db(f"SELECT SourceFileName, LocalFileName FROM {app.config['TABLE_TODOS']} WHERE TaskId=?;", (task_id,), one=True)
     if task is None:
         flash(f"Task {task_id} does not exist")
     else:
@@ -229,7 +232,10 @@ def delete_task(task_id):
         if type(result) == int:
             filename_local = task['LocalFileName']
             if filename_local:
-                os.remove(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
+                try:
+                    os.remove(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
+                except FileNotFoundError as error:
+                    flash(f"Could not delete {task['SourceFileName']}: {error}")
             flash(f"{result} Record deleted")
         else:
             flash(f"Error in delete operation: {result}")
