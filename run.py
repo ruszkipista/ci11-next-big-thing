@@ -152,7 +152,6 @@ def update_row(table:str, row:sqlite3.Row, id:int):
 def mongo_connect(url, db_name):
     try:
         conn = pymongo.MongoClient(url)
-        print(f"{db_name} is connected")
         return conn
     except pymongo.errors.ConnectionFailure as e:
         print(f"Could not connect to MongoDB {db_name}: {e}")
@@ -285,16 +284,26 @@ def contact():
 #=================
 @app.route("/celebs")
 def celebs():
-        return render_template("celebs.html", page_title="Celebrities", celebs=[], last_celeb={})
+    conn = mongo_connect(app.config["MONGO_URI"], app.config["MONGO_DB_NAME"])
+    coll = conn[app.config["MONGO_DB_NAME"]][app.config["MONGO_COLLECTION"]]
+    celebs = coll.find()
+    return render_template("celebs.html", page_title="Celebrities", celebs=celebs, last_celeb={})
+
+
+@app.route("/celebs/update/<celeb_id>", methods=['GET','POST'])
+def update_celeb(celeb_id):
+    pass
+
+
+@app.route("/celebs/delete/<celeb_id>")
+def delete_celeb(celeb_id):
+    pass
 
 # Run the App
 #=================
 if __name__ == "__main__":
     if app.config["SQLITE_INIT"]:
         init_db()
-
-    conn = mongo_connect(app.config["MONGO_URI"], app.config["MONGO_DB_NAME"])
-    coll = conn[app.config["MONGO_DB_NAME"]][app.config["MONGO_COLLECTION"]]
 
     app.run(
         host  = app.config["FLASK_IP"],
