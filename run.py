@@ -7,6 +7,7 @@ import time
 if os.path.exists("env.py"):
     import env
 
+
 app = Flask(__name__)
 
 # take app configuration from OS environment variables
@@ -15,6 +16,9 @@ app.config["FLASK_IP"]       = os.environ.get("FLASK_IP",      "0.0.0.0")
 # the source 'PORT' name is mandated by Heroku app deployment
 app.config["FLASK_PORT"]     = int(os.environ.get("PORT"))
 app.config["FLASK_DEBUG"]    = os.environ.get("FLASK_DEBUG",   "False").lower() in {'1','true','t','yes','y'}
+app.config["UPLOAD_FOLDER"]  = os.environ.get("UPLOAD_FOLDER", "./data/")
+app.config["UPLOAD_EXTENSIONS"] = set(['png', 'jpg', 'jpeg', 'gif'])
+# SQLite parameters
 app.config["SQLITE_INIT"]    = os.environ.get("SQLITE_INIT",   "False").lower() in {'1','true','t','yes','y'}# => Heroku Congig Vars
 app.config["SQLITE_DB"]      = os.environ.get("SQLITE_DB",     "./data/taskmaster.sqlite") 
 app.config["SQLITE_SCHEMA"]  = os.environ.get("SQLITE_SCHEMA", "./data/schema.sql")
@@ -23,9 +27,17 @@ app.config["TABLE_TODOS"]    = "Todos"
 app.config["TABLE_TODOV"]    = "TodosView"
 app.config["COLUMNS_TODOS"]  = ('TaskId','Content','Completed','SourceFileName','LocalFileName','DatTimIns', 'DatTimUpd')
 app.config["DEFAULTS_TODOS"] = (0,'','','','','','')
-app.config["UPLOAD_FOLDER"]  = os.environ.get("UPLOAD_FOLDER", "./data/")
-app.config["UPLOAD_EXTENSIONS"] = set(['png', 'jpg', 'jpeg', 'gif'])
-
+# MongoDB parameters
+app.config["MONGO_DB_NAME"]        = os.environ.get("MONGO_DB_NAME")
+app.config["MONGO_DB_CLUSTER"]     = os.environ.get("MONGO_DB_CLUSTER")
+app.config["MONGO_DB_COLLECTION"]  = os.environ.get("MONGO_DB_COLLECTION")
+app.config["MONGO_URI"] = f"mongodb+srv:" + \
+                          f"//{os.environ.get('MONGO_DB_USER')}" + \
+                          f":{os.environ.get('MONGO_DB_PASS')}" + \
+                          f"@{app.config['MONGO_DB_CLUSTER']}" + \
+                          f".ueffo.mongodb.net" + \
+                          f"/{app.config['MONGO_DB_NAME']}" + \
+                          f"?retryWrites=true&w=majority"
 
 # SQLite3 helpers
 #=====================
@@ -145,8 +157,8 @@ def about():
     return render_template("about.html", page_title="About")
 
 
-@app.route("/todo", methods=['GET','POST'])
-def todo():
+@app.route("/todo_sqlite", methods=['GET','POST'])
+def todo_sqlite():
     if request.method == 'POST':
         task = save_task_to_db(request, None)
     else:
@@ -158,24 +170,24 @@ def todo():
     tasks = [convertFromDBtoPrint(t, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
     if not tasks:
         flash("There are no tasks. Create one above!")
-    return render_template("todo.html", page_title="Task Master", request_path=request.path, tasks=tasks, last_task=task)
+    return render_template("todo_sqlite.html", page_title="Task Master", request_path=request.path, tasks=tasks, last_task=task)
 
 
-@app.route("/todo/update/<int:task_id>", methods=['GET','POST'])
+@app.route("/todo_sqlite/update/<int:task_id>", methods=['GET','POST'])
 def update_task(task_id):
     task = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} WHERE rowid=?;", (task_id,), one=True)
     if task is None:
         flash(f"Task {task_id} does not exist")
-        return redirect("/todo")
+        return redirect("/todo_sqlite")
 
     if request.method == 'POST':
         task = save_task_to_db(request, task)
-        return redirect("/todo")
+        return redirect("/todo_sqlite")
 
     task = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
     tasks = [convertFromDBtoPrint(t,app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
-    return render_template("todo.html", page_title="Task Master", tasks=tasks, last_task=task)
+    return render_template("todo_sqlite.html", page_title="Task Master", tasks=tasks, last_task=task)
 
 
 def save_task_to_db(request, task_old):
@@ -222,7 +234,7 @@ def save_task_to_db(request, task_old):
     return task_new
 
 
-@app.route("/todo/delete/<int:task_id>")
+@app.route("/todo_sqlite/delete/<int:task_id>")
 def delete_task(task_id):
     task = query_db(f"SELECT SourceFileName, LocalFileName FROM {app.config['TABLE_TODOS']} WHERE TaskId=?;", (task_id,), one=True)
     if task is None:
@@ -239,7 +251,7 @@ def delete_task(task_id):
             flash(f"{result} Record deleted")
         else:
             flash(f"Error in delete operation: {result}")
-    return redirect('/todo')
+    return redirect('/todo_sqlite')
 
 
 def convertFromDBtoPrint(row:sqlite3.Row, columns, defaults):
