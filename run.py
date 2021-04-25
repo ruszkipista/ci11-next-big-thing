@@ -277,7 +277,7 @@ def get_mongo_coll(collection):
 
 def save_celeb_to_db(request, celeb_old):
     columns = ('first','last','dob','gender','hair_color','occupation','nationality')
-    celeb_new  = {column:request.form.get(column,'') for column in columns if request.form.get(column,'') != celeb_old[column]}
+    celeb_new  = {column:request.form.get(column,'') for column in columns if request.form.get(column,'') != celeb_old.get(column,'')}
     # string to date conversion
     
     # following instructions from https://flask.palletsprojects.com/en/1.1.x/patterns/fileuploads/
@@ -320,7 +320,7 @@ def save_celeb_to_db(request, celeb_old):
 @app.route("/celebs", methods=['GET','POST'])
 def celebs():
     if request.method == 'POST':
-        celeb = save_celeb_to_db(request, None)
+        celeb = save_celeb_to_db(request, {})
     else:
         celeb = {}
     coll = get_mongo_coll(app.config["MONGO_COLLECTION"])
@@ -346,10 +346,16 @@ def update_celeb(celeb_id):
 
 @app.route("/celebs/delete/<celeb_id>")
 def delete_celeb(celeb_id):
-    pass
+    coll = get_mongo_coll(app.config["MONGO_COLLECTION"])
+    celeb = coll.find_one({"_id":ObjectId(celeb_id)})
+    if not celeb:
+        flash(f"Document {celeb_id} does not exist")
+        return redirect("/celebs")
+    coll.delete_one({"_id":celeb["_id"]})
+    celebs = coll.find()
+    return render_template("celebs.html", page_title="Celebrities", celebs=celebs, last_celeb={})
 
-
-# SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
+# Flask pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
 @app.teardown_appcontext
 def close_connection(exception):
     db = getattr(g, '_database_sqlite', None)
