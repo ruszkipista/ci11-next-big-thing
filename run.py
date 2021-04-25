@@ -166,7 +166,6 @@ def _jinja2_filter_time_ago(unix_timestamp:int):
         (58060800000, 'centuries', 2903040000)        # 60*60*24*7*4*12*100*20, 60*60*24*7*4*12*100
     )
     seconds = datetime.utcnow().timestamp() - unix_timestamp
-    print(seconds)
     if 0 <= seconds < 1:
         return 'Just now'
     if seconds < 0 :
@@ -205,10 +204,8 @@ def todos():
     else:
         # create an empty task
         task = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
-    task = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
     # get all tasks from DB
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} ORDER BY Completed;")
-    tasks = [convertFromDBtoPrint(t, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
     if not tasks:
         flash("There are no tasks. Create one above!")
     return render_template("todos.html", page_title="Task Master", request_path=request.path, tasks=tasks, last_task=task)
@@ -225,9 +222,7 @@ def update_task(task_id):
         task = save_task_to_db(request, task)
         return redirect("/todos")
 
-    task = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} ORDER BY Completed;")
-    tasks = [convertFromDBtoPrint(t,app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
     return render_template("todos.html", page_title="Task Master", tasks=tasks, last_task=task)
 
 
@@ -292,9 +287,6 @@ def delete_task(task_id):
             flash(f"Error in delete operation: {result}")
     return redirect('/todos')
 
-
-def convertFromDBtoPrint(row:sqlite3.Row, columns, defaults):
-    return {c:(d if row[c] is None else row[c]) for (c,d) in zip(columns,defaults)}
 
 @app.route("/uploads/<filename_local>")
 def uploads(filename_local):
