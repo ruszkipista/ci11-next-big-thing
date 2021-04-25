@@ -7,8 +7,7 @@ import time
 import pymongo
 from bson.objectid import ObjectId
 import json
-from datetime import date, datetime, timezone
-import pytz # for timezone()
+from datetime import date, datetime
 from math import floor
 
 # env.py should exist only in Development
@@ -33,7 +32,6 @@ app.config["SQLITE_SCHEMA"]  = os.environ.get("SQLITE_SCHEMA", "./data/sqlite_sc
 app.config["SQLITE_CONTENT"] = os.environ.get("SQLITE_CONTENT","./data/sqlite_content.sql")
 app.config["TABLE_TODOS"]    = "Todos"
 app.config["COLUMNS_TODOS"]  = ('TaskId','Content','Completed','SourceFileName','LocalFileName','DatTimIns', 'DatTimUpd')
-app.config["DEFAULTS_TODOS"] = (0,'','','','','','')
 # MongoDB parameters
 app.config["MONGO_INIT"]       = os.environ.get("MONGO_INIT",   "False").lower() in {'1','true','t','yes','y'}# => Heroku Congig Vars
 app.config["MONGO_CONTENT"]    = os.environ.get("MONGO_CONTENT","./data/mongo_content.json")
@@ -203,7 +201,7 @@ def todos():
         task = save_task_to_db(request, None)
     else:
         # create an empty task
-        task = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
+        task = {}
     # get all tasks from DB
     tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} ORDER BY Completed;")
     if not tasks:
@@ -261,7 +259,7 @@ def save_task_to_db(request, task_old):
                     flash(f"Could not delete {task_old['SourceFileName']}: {error}")
 
         # create empty task - this will be displayed, because the update was OK
-        task_new = create_row(app.config["COLUMNS_TODOS"],app.config["DEFAULTS_TODOS"])
+        task_new = {}
         flash(f"One record successfully {'updated' if task_old else 'added'}")
     else:
         flash(f"Error in {'update' if task_old else 'insert'} operation: {row_id}")

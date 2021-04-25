@@ -6,12 +6,12 @@
 
 {% block body %}
 <div class="content">
-    {% if last_task['TaskId'] == 0 %}{% set update=False %}{% else %}{% set update=True %}{% endif %}
+    {% if last_task %}{% set update=True %}{% else %}{% set update=False %}{% endif %}
     <div class="form">
         <form action="{{ request_path }}" method="POST" enctype="multipart/form-data">
             <label for="Content">Task Description</label>
             <br>
-            <input type="text" name="Content" id="Content" value="{{ last_task['Content'] }}">
+            <input type="text" name="Content" id="Content" value="{% if last_task['Content'] %}{{ last_task['Content' ]}}{% endif %}">
             <input type="checkbox" name="Completed" id="completed" {% if last_task['Completed'] == 1 %}checked{% endif %}>
             <br>
             <label for="SourceFileName">Select a file:</label>
