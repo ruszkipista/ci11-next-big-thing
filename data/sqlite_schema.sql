@@ -1,4 +1,4 @@
-DROP VIEW IF EXISTS TodosView;
+-- DROP VIEW IF EXISTS TodosView;
 DROP TABLE IF EXISTS Todos;
 
 CREATE TABLE Todos (
@@ -20,7 +20,8 @@ BEGIN
      WHERE TaskId = new.TaskId;
 END;
 
-/* convert Unix-Times to DateTimes so not every single query needs to do so */ 
+/* convert Unix-Time to DateTime so not every single query needs to do so */ 
+/*
 CREATE VIEW TodosView AS
     SELECT TaskId, 
            Content,
@@ -30,3 +31,4 @@ CREATE VIEW TodosView AS
            DateTime(DatTimIns, 'unixepoch') AS DatTimIns, -- convert Integer(4) (treating it as Unix-Time)
            DateTime(DatTimUpd, 'unixepoch') AS DatTimUpd  -- to YYYY-MM-DD HH:MM:SS
       FROM Todos;
+*/

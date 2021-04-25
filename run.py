@@ -32,7 +32,6 @@ app.config["SQLITE_DB"]      = os.environ.get("SQLITE_DB",     "./data/taskmaste
 app.config["SQLITE_SCHEMA"]  = os.environ.get("SQLITE_SCHEMA", "./data/sqlite_schema.sql")
 app.config["SQLITE_CONTENT"] = os.environ.get("SQLITE_CONTENT","./data/sqlite_content.sql")
 app.config["TABLE_TODOS"]    = "Todos"
-app.config["TABLE_TODOV"]    = "TodosView"
 app.config["COLUMNS_TODOS"]  = ('TaskId','Content','Completed','SourceFileName','LocalFileName','DatTimIns', 'DatTimUpd')
 app.config["DEFAULTS_TODOS"] = (0,'','','','','','')
 # MongoDB parameters
@@ -227,7 +226,7 @@ def update_task(task_id):
         return redirect("/todos")
 
     task = convertFromDBtoPrint(task, app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"])
-    tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOV']} ORDER BY Completed;")
+    tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} ORDER BY Completed;")
     tasks = [convertFromDBtoPrint(t,app.config["COLUMNS_TODOS"], app.config["DEFAULTS_TODOS"]) for t in tasks]
     return render_template("todos.html", page_title="Task Master", tasks=tasks, last_task=task)
 

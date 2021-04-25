@@ -48,10 +48,10 @@
                 <td>
                     {% if task['LocalFileName'] %}
                     <img src="{{ url_for('uploads', filename_local=task['LocalFileName']) }}" width="100px" alt="{{ task['Description'] }}"><br>
-                    {% endif %}
                     <p>{{ task['SourceFileName'] }}</p>
+                    {% endif %}
                 </td>                           
-                <td>{{ task['Content' ]}}</td>
+                <td>{% if task['Content'] %}{{ task['Content' ]}}{% endif %}</td>
                 <td><input type="checkbox" disabled {% if task['Completed'] == 1 %}checked{% endif %}></td>
                 <td>{{ task['DatTimIns']|unix_time_ago }}</td>
                 <td>{% if task['DatTimUpd'] %}{{ task['DatTimUpd']|unix_time_ago }}{% endif %}</td>
