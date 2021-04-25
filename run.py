@@ -30,14 +30,14 @@ app.config["SQLITE_INIT"]    = os.environ.get("SQLITE_INIT",   "False").lower() 
 app.config["SQLITE_DB"]      = os.environ.get("SQLITE_DB",     "./data/taskmaster.sqlite") 
 app.config["SQLITE_SCHEMA"]  = os.environ.get("SQLITE_SCHEMA", "./data/sqlite_schema.sql")
 app.config["SQLITE_CONTENT"] = os.environ.get("SQLITE_CONTENT","./data/sqlite_content.sql")
-app.config["TABLE_TODOS"]    = "Todos"
+app.config["SQLITE_TABLE_TODOS"] = "Todos"
 app.config["COLUMNS_TODOS"]  = ('TaskId','Content','Completed','SourceFileName','LocalFileName','DatTimIns', 'DatTimUpd')
 # MongoDB parameters
 app.config["MONGO_INIT"]       = os.environ.get("MONGO_INIT",   "False").lower() in {'1','true','t','yes','y'}# => Heroku Congig Vars
 app.config["MONGO_CONTENT"]    = os.environ.get("MONGO_CONTENT","./data/mongo_content.json")
 app.config["MONGO_DB_NAME"]    = os.environ.get("MONGO_DB_NAME")
 app.config["MONGO_CLUSTER"]    = os.environ.get("MONGO_CLUSTER")
-app.config["MONGO_COLLECTION"] = os.environ.get("MONGO_COLLECTION")
+app.config["MONGO_COLLECTION_CELEBS"] = 'celebrities'
 app.config["MONGO_URI"] = f"mongodb+srv:" + \
                           f"//{os.environ.get('MONGO_DB_USER')}" + \
                           f":{os.environ.get('MONGO_DB_PASS')}" + \
@@ -203,7 +203,7 @@ def todos():
         # create an empty task
         task = {}
     # get all tasks from DB
-    tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} ORDER BY Completed;")
+    tasks = query_db(f"SELECT * FROM {app.config['SQLITE_TABLE_TODOS']} ORDER BY Completed;")
     if not tasks:
         flash("There are no tasks. Create one above!")
     return render_template("todos.html", page_title="Task Master", request_path=request.path, tasks=tasks, last_task=task)
@@ -211,7 +211,7 @@ def todos():
 
 @app.route("/todos/update/<int:task_id>", methods=['GET','POST'])
 def update_task(task_id):
-    task = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} WHERE rowid=?;", (task_id,), one=True)
+    task = query_db(f"SELECT * FROM {app.config['SQLITE_TABLE_TODOS']} WHERE rowid=?;", (task_id,), one=True)
     if task is None:
         flash(f"Task {task_id} does not exist")
         return redirect("/todos")
@@ -220,7 +220,7 @@ def update_task(task_id):
         task = save_task_to_db(request, task)
         return redirect("/todos")
 
-    tasks = query_db(f"SELECT * FROM {app.config['TABLE_TODOS']} ORDER BY Completed;")
+    tasks = query_db(f"SELECT * FROM {app.config['SQLITE_TABLE_TODOS']} ORDER BY Completed;")
     return render_template("todos.html", page_title="Task Master", tasks=tasks, last_task=task)
 
 
@@ -243,9 +243,9 @@ def save_task_to_db(request, task_old):
 
     task_new = create_row(columns, values)
     if task_old:
-        row_id = update_row(app.config["TABLE_TODOS"], task_new, task_old['TaskId'])
+        row_id = update_row(app.config["SQLITE_TABLE_TODOS"], task_new, task_old['TaskId'])
     else:
-        row_id = insert_row(app.config["TABLE_TODOS"], task_new)
+        row_id = insert_row(app.config["SQLITE_TABLE_TODOS"], task_new)
     # update was successful
     if type(row_id) == int:
         # save new file
@@ -268,11 +268,11 @@ def save_task_to_db(request, task_old):
 
 @app.route("/todos/delete/<int:task_id>")
 def delete_task(task_id):
-    task = query_db(f"SELECT SourceFileName, LocalFileName FROM {app.config['TABLE_TODOS']} WHERE TaskId=?;", (task_id,), one=True)
+    task = query_db(f"SELECT SourceFileName, LocalFileName FROM {app.config['SQLITE_TABLE_TODOS']} WHERE TaskId=?;", (task_id,), one=True)
     if task is None:
         flash(f"Task {task_id} does not exist")
     else:
-        result = delete_row(app.config['TABLE_TODOS'], task_id)
+        result = delete_row(app.config['SQLITE_TABLE_TODOS'], task_id)
         if type(result) == int:
             filename_local = task['LocalFileName']
             if filename_local:
@@ -336,7 +336,7 @@ def save_celeb_to_db(request, celeb_old):
             filename_local = str(time.time()).replace('.','')+'.'+extension
             celeb_new['SourceFileName'] = filename_source
             celeb_new['LocalFileName']  = filename_local
-    coll = get_mongo_coll(app.config["MONGO_COLLECTION"])
+    coll = get_mongo_coll(app.config["MONGO_COLLECTION_CELEBS"])
     try:
         if celeb_old:
             print(celeb_new, type(celeb_old['_id']))
@@ -374,14 +374,14 @@ def celebs():
         celeb = save_celeb_to_db(request, {})
     else:
         celeb = {}
-    coll = get_mongo_coll(app.config["MONGO_COLLECTION"])
+    coll = get_mongo_coll(app.config["MONGO_COLLECTION_CELEBS"])
     celebs = coll.find()
     return render_template("celebs.html", page_title="Celebrities", celebs=celebs, last_celeb=celeb)
 
 
 @app.route("/celebs/update/<celeb_id>", methods=['GET','POST'])
 def update_celeb(celeb_id):
-    coll = get_mongo_coll(app.config["MONGO_COLLECTION"])
+    coll = get_mongo_coll(app.config["MONGO_COLLECTION_CELEBS"])
     celeb = coll.find_one({"_id":ObjectId(celeb_id)})
     if not celeb:
         flash(f"Document {celeb_id} does not exist")
@@ -397,7 +397,7 @@ def update_celeb(celeb_id):
 
 @app.route("/celebs/delete/<celeb_id>")
 def delete_celeb(celeb_id):
-    coll = get_mongo_coll(app.config["MONGO_COLLECTION"])
+    coll = get_mongo_coll(app.config["MONGO_COLLECTION_CELEBS"])
     celeb = coll.find_one({"_id":ObjectId(celeb_id)})
     if not celeb:
         flash(f"Document {celeb_id} does not exist")
