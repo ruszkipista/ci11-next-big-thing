@@ -7,7 +7,7 @@ CREATE TABLE Todos (
    ,Completed  INTEGER     NOT NULL DEFAULT 0
    ,SourceFileName TEXT
    ,LocalFileName  TEXT
-   ,DatTimIns  INTEGER (4) NOT NULL DEFAULT (strftime('%s', DateTime('Now', 'localtime'))) -- get Now/UTC, convert to local, convert to string/Unix Time, store as Integer(4)
+   ,DatTimIns  INTEGER (4) NOT NULL DEFAULT (strftime('%s', DateTime('Now','UTC'))) -- get Now/UTC, convert to local, convert to string/Unix Time, store as Integer(4)
    ,DatTimUpd  INTEGER(4)      NULL
 );
 /* how to store timestamps as integers https://stackoverflow.com/questions/200309/sqlite-database-default-time-value-now  */
@@ -16,7 +16,7 @@ CREATE TRIGGER trgTodosUpd
             ON Todos
 BEGIN
     UPDATE Todos
-       SET DatTimUpd = strftime('%s', DateTime('Now', 'localtime') )-- same as DatTimIns 
+       SET DatTimUpd = strftime('%s', DateTime('Now','UTC') )-- same as DatTimIns 
      WHERE TaskId = new.TaskId;
 END;
 
