@@ -6,6 +6,7 @@ import time
 #!pip install dnspython pymongo
 import pymongo
 from bson.objectid import ObjectId
+import json
 
 # env.py should exist only in Development
 if os.path.exists("env.py"):
@@ -25,13 +26,15 @@ app.config["UPLOAD_EXTENSIONS"] = set(['png', 'jpg', 'jpeg', 'gif'])
 # SQLite parameters
 app.config["SQLITE_INIT"]    = os.environ.get("SQLITE_INIT",   "False").lower() in {'1','true','t','yes','y'}# => Heroku Congig Vars
 app.config["SQLITE_DB"]      = os.environ.get("SQLITE_DB",     "./data/taskmaster.sqlite") 
-app.config["SQLITE_SCHEMA"]  = os.environ.get("SQLITE_SCHEMA", "./data/schema.sql")
-app.config["SQLITE_CONTENT"] = os.environ.get("SQLITE_CONTENT","./data/content.sql")
+app.config["SQLITE_SCHEMA"]  = os.environ.get("SQLITE_SCHEMA", "./data/sqlite_schema.sql")
+app.config["SQLITE_CONTENT"] = os.environ.get("SQLITE_CONTENT","./data/sqlite_content.sql")
 app.config["TABLE_TODOS"]    = "Todos"
 app.config["TABLE_TODOV"]    = "TodosView"
 app.config["COLUMNS_TODOS"]  = ('TaskId','Content','Completed','SourceFileName','LocalFileName','DatTimIns', 'DatTimUpd')
 app.config["DEFAULTS_TODOS"] = (0,'','','','','','')
 # MongoDB parameters
+app.config["MONGO_INIT"]       = os.environ.get("MONGO_INIT",   "False").lower() in {'1','true','t','yes','y'}# => Heroku Congig Vars
+app.config["MONGO_CONTENT"]    = os.environ.get("MONGO_CONTENT","./data/mongo_content.json")
 app.config["MONGO_DB_NAME"]    = os.environ.get("MONGO_DB_NAME")
 app.config["MONGO_CLUSTER"]    = os.environ.get("MONGO_CLUSTER")
 app.config["MONGO_COLLECTION"] = os.environ.get("MONGO_COLLECTION")
@@ -57,7 +60,7 @@ def get_sqlite_db():
 
 
 # inspired by SQLite pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
-def init_db(load_content=False):
+def init_sqlite_db(load_content=False):
     with app.app_context():
         db = get_sqlite_db()
         with app.open_resource(app.config["SQLITE_SCHEMA"], mode='r') as f:
@@ -275,6 +278,16 @@ def get_mongo_coll(collection):
     return conn[app.config["MONGO_DB_NAME"]][collection]
 
 
+def init_mongo_db(load_content=False):
+    with app.app_context():
+        with app.open_resource(app.config["MONGO_CONTENT"], mode='r') as f:
+            collections = json.loads(f.read())
+            for coll_name,coll_docs in collections.items():
+                coll = get_mongo_coll(coll_name)
+                coll.delete_many({})
+                coll.insert_many(coll_docs)
+ 
+
 def save_celeb_to_db(request, celeb_old):
     columns = ('first','last','dob','gender','hair_color','occupation','nationality')
     celeb_new  = {column:request.form.get(column,'') for column in columns if request.form.get(column,'') != celeb_old.get(column,'')}
@@ -370,7 +383,10 @@ def close_connection(exception):
 #=================
 if __name__ == "__main__":
     if app.config["SQLITE_INIT"]:
-        init_db()
+        init_sqlite_db()
+
+    if app.config["MONGO_INIT"]:
+        init_mongo_db()
 
     app.run(
         host  = app.config["FLASK_IP"],
