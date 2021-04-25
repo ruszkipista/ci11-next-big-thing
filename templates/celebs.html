@@ -66,7 +66,7 @@
                 </td>                           
                 <td>{{ celeb['first' ]}}</td>
                 <td>{{ celeb['last' ]}}</td>
-                <td>{{ celeb['dob' ]}}</td>
+                <td>{{ celeb['dob' ]|isodate_to_str('%d/%m/%Y') }}</td>
                 <td>{{ celeb['gender' ]}}</td>
                 <td>{{ celeb['hair_color' ]}}</td>
                 <td>{{ celeb['occupation' ]}}</td>

@@ -7,6 +7,7 @@ import time
 import pymongo
 from bson.objectid import ObjectId
 import json
+from datetime import date
 
 # env.py should exist only in Development
 if os.path.exists("env.py"):
@@ -327,6 +328,11 @@ def save_celeb_to_db(request, celeb_old):
     except:
         flash(f"Error in {'update' if celeb_old else 'insert'} operation!")
     return celeb_new
+
+# inspired by https://stackoverflow.com/questions/4830535/how-do-i-format-a-date-in-jinja2
+@app.template_filter('isodate_to_str')
+def _jinja2_filter_isodate_to_str(isodatestr, format):
+    return date.fromisoformat(isodatestr).strftime(format) 
 
 # MongoDB routes
 #=================
