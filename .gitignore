@@ -10,3 +10,4 @@ data/*.sqlite
 data/*.png
 data/*.jpg
 data/*.jpeg
+credits.json

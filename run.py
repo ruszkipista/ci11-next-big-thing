@@ -354,6 +354,8 @@ def save_celeb_to_db(request, celeb_old):
 def _jinja2_filter_isodate_to_str(isodatestr, format):
     if isodatestr:
         return date.fromisoformat(isodatestr).strftime(format)
+    else:
+        return str()
 
 
 # MongoDB routes
