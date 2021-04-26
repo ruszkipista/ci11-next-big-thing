@@ -13,6 +13,11 @@ import json
 from datetime import date, datetime
 from math import floor
 
+# Support for Google Drive and Google Sheets API
+#!pip install gspread google-auth
+from google.oauth2.service_account import Credentials
+import gspread
+
 # env.py should exist only in Development
 if os.path.exists("env.py"):
     import env
@@ -48,6 +53,15 @@ app.config["MONGO_URI"] = f"mongodb+srv:" + \
                           f".ueffo.mongodb.net" + \
                           f"/{app.config['MONGO_DB_NAME']}" + \
                           f"?retryWrites=true&w=majority"
+# Google Sheets parameters
+app.config["GSHEETS_SCOPE"] = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/drive"
+    ]
+app.config["GSHEETS_CREDITS"] = "./credits.json"
+app.config["GSHEETS_SHEETS"]  = "Python CodeInstitute-love_sandwiches"
+
 
 # SQLite3 DB helpers
 #=====================
@@ -405,6 +419,30 @@ def image_celeb(celeb_id):
     celeb = coll.find_one({"_id":ObjectId(celeb_id)})
     if celeb and celeb['Image']:
         return send_file(BytesIO(celeb['Image']), mimetype='application/octet-stream')
+
+# Google Sheets helpers
+#=======================
+def get_gsheet(sheet):
+    sheets = getattr(g, '_database_gsheets', None)
+    if sheets is None:
+        try:
+            CREDS = Credentials.from_service_account_file(app.config["GSHEETS_CREDITS"])
+            SCOPED_CREDS = CREDS.with_scopes(app.config["GSHEETS_SCOPE"])
+            GSPREAD_CLIENT = gspread.authorize(SCOPED_CREDS)
+            SHEETS = GSPREAD_CLIENT.open(app.config["GSHEETS_SHEETS"])
+        except:
+            print(f"Could not connect to Google Sheets {app.config['GSHEETS_SHEETS']}")
+            return None
+    return SHEETS.worksheet(sheet)
+
+
+# GoogleSheets routes
+#=====================
+@app.route("/sandwitches", methods=['GET','POST'])
+def sandwitches():
+    sales = get_gsheet('sales')
+    data = sales.get_all_values()
+    return render_template("sandwitches.html", page_title="Love Sandwitches", data=data)
 
 
 # Flask pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
