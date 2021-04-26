@@ -1,11 +1,14 @@
 import os
-from flask import Flask, render_template, g, request, redirect, flash, send_from_directory
+from flask import Flask, render_template, g, request, redirect, flash, send_from_directory, send_file
 from werkzeug.utils import secure_filename
 import time
 
+# Support for mongodb+srv:// URIs requires dnspython:
 #!pip install dnspython pymongo
 import pymongo
 from bson.objectid import ObjectId
+from bson.binary import Binary
+from io import BytesIO
 import json
 from datetime import date, datetime
 from math import floor
@@ -324,36 +327,21 @@ def init_mongo_db(load_content=False):
 def save_celeb_to_db(request, celeb_old):
     columns = ('first','last','dob','gender','hair_color','occupation','nationality')
     celeb_new  = {column:request.form.get(column,'') for column in columns if request.form.get(column,'') != celeb_old.get(column,'')}
-    # string to date conversion
-    
     # following instructions from https://flask.palletsprojects.com/en/1.1.x/patterns/fileuploads/
     data = request.files['SourceFileName']
     if data:
         filename_source = secure_filename(data.filename)
         extension = filename_source.rsplit('.', 1)[1] if '.' in filename_source else ''
         if extension in app.config["UPLOAD_EXTENSIONS"]:
-            # generate a new image file name
-            filename_local = str(time.time()).replace('.','')+'.'+extension
-            celeb_new['SourceFileName'] = filename_source
-            celeb_new['LocalFileName']  = filename_local
+            # print(data)
+            # store image
+            celeb_new['Image'] = Binary(data.read())
     coll = get_mongo_coll(app.config["MONGO_COLLECTION_CELEBS"])
     try:
         if celeb_old:
-            print(celeb_new, type(celeb_old['_id']))
             coll.update_one({'_id':celeb_old['_id']}, {"$set":celeb_new})
         else:
             coll.insert_one(celeb_new)
-        # update/insert was successful
-        # if data:
-        #     # save new file
-        #     data.save(os.path.join(app.config["UPLOAD_FOLDER"], filename_local))
-        #     # delete old file
-        #     if celeb_old and celeb_old['LocalFileName']:
-        #         try:
-        #             os.remove(os.path.join(app.config["UPLOAD_FOLDER"], celeb_old['LocalFileName']))
-        #         except FileNotFoundError as error:
-        #             flash(f"Could not delete {celeb_old['SourceFileName']}: {error}")
-
         # create empty celeb - clear the input fields, because the update was OK
         celeb_new = {}
         flash(f"One document successfully {'updated' if celeb_old else 'added'}")
@@ -364,7 +352,9 @@ def save_celeb_to_db(request, celeb_old):
 # inspired by https://stackoverflow.com/questions/4830535/how-do-i-format-a-date-in-jinja2
 @app.template_filter('isodate_to_str')
 def _jinja2_filter_isodate_to_str(isodatestr, format):
-    return date.fromisoformat(isodatestr).strftime(format) 
+    if isodatestr:
+        return date.fromisoformat(isodatestr).strftime(format)
+
 
 # MongoDB routes
 #=================
@@ -405,6 +395,15 @@ def delete_celeb(celeb_id):
     coll.delete_one({"_id":celeb["_id"]})
     celebs = coll.find()
     return render_template("celebs.html", page_title="Celebrities", celebs=celebs, last_celeb={})
+
+
+@app.route("/celebs/image/<celeb_id>")
+def image_celeb(celeb_id):
+    coll = get_mongo_coll(app.config["MONGO_COLLECTION_CELEBS"])
+    celeb = coll.find_one({"_id":ObjectId(celeb_id)})
+    if celeb and celeb['Image']:
+        return send_file(BytesIO(celeb['Image']), mimetype='application/octet-stream')
+
 
 # Flask pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/
 @app.teardown_appcontext

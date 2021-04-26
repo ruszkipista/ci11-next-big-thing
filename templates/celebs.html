@@ -59,8 +59,8 @@
         {% for celeb in celebs %}
             <tr>
                 <td>
-                    {% if celeb['LocalFileName'] %}
-                    <img src="{{ url_for('uploads', filename_local=celeb['image']) }}" width="100px" alt="{{ celeb['last'] }}"><br>
+                    {% if celeb['Image'] %}
+                    <img src="{{ url_for('image_celeb', celeb_id=celeb['_id']) }}" width="100px" alt="{{ celeb['last'] }}"><br>
                     {% endif %}
                     <p>{{ celeb['SourceFileName'] }}</p>
                 </td>                           
