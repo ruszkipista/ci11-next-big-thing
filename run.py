@@ -64,7 +64,7 @@ app.config["GSHEETS_SCOPE"] = [
 app.config["GSHEETS_CREDITS"] = json.loads(os.environ.get("GSHEETS_CREDITS"))
 app.config["GSHEETS_SHEETS"]  = "Python CodeInstitute-love_sandwiches"
 app.config["GSHEETS_PAGE"] = {
-        "title":"Stocked/Sold sandwiches on market days",
+        "title":"Opening Stock - Sold = Surplus sandwiches on market days",
         "columns":['sale'+str(i) for i in range(6)]
 }
 
@@ -467,12 +467,13 @@ def sandwiches():
 
     stock_data = get_gsheet(SHEET_STOCK).get_all_values()
     sales_data = get_gsheet(SHEET_SALES).get_all_values()
+    surplus_data = [[int(st)-int(sl) for st,sl in zip(stock,sales)] if i>0 else stock for i,(stock,sales) in enumerate(zip(stock_data,sales_data))]
     return render_template("sandwiches.html", 
                             page_title="Love Sandwiches",
                             page_subtitle=app.config["GSHEETS_PAGE"]["title"],
                             request_path=request.path,
                             columns=app.config["GSHEETS_PAGE"]["columns"], 
-                            data=zip_longest(stock_data,sales_data, fillvalue=[]))
+                            data=zip_longest(stock_data,sales_data,surplus_data, fillvalue=[]))
 
 
 # Flask pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/

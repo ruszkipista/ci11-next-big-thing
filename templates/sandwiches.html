@@ -18,7 +18,7 @@
     {% endwith %}
 
     <table>
-        {% for stock_row, sales_row in data %}
+        {% for stock_row, sales_row, surplus_row in data %}
         <tr>
         {% if loop.first %}
             <form action="{{ request_path }}" method="POST">
@@ -34,7 +34,7 @@
             </form>
         {% else %}
             {% for column in columns %}
-            <td>{{ stock_row[loop.index0] }} / {{ sales_row[loop.index0] }}</td>
+            <td>{{ stock_row[loop.index0] }} - {{ sales_row[loop.index0] }} = {{ surplus_row[loop.index0] }}</td>
             {% endfor %}    
         {% endif %}                     
         </tr>
