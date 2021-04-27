@@ -1,14 +1,13 @@
 {% extends "base.html" %}
 <!-- Google Cloud Platform https://console.cloud.google.com/ -->
 {% block head %}
-<title>Love Sandwitches</title>
+<title>Love Sandwiches</title>
 {% endblock %}
 
 {% block body %}
 <div class="content">
     <h2>{{ page_subtitle }}</h2>
-    <p>link to the <a href="https://docs.google.com/spreadsheets/d/1EIDdrNyBF9oxFSFNpzwZWBmyUAYmawToDBEO0wu5GmQ/" target="_blank">google sheets</a></p>
-    {% with messages = get_flashed_messages() %}
+     {% with messages = get_flashed_messages() %}
     {% if messages %}
     <ul>
         {% for message in messages%}
@@ -40,5 +39,7 @@
         </tr>
         {% endfor %}
     </table>
+    
+    <p>link to the <a href="https://docs.google.com/spreadsheets/d/1EIDdrNyBF9oxFSFNpzwZWBmyUAYmawToDBEO0wu5GmQ/" target="_blank">google sheets</a></p>
 </div>
 {% endblock %}

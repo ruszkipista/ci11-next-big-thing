@@ -64,7 +64,7 @@ app.config["GSHEETS_CREDITS"] = json.loads(os.environ.get("GSHEETS_CREDITS"))
 app.config["GSHEETS_SHEETS"]  = "Python CodeInstitute-love_sandwiches"
 app.config["GSHEETS_WSHEETS"] = {
     "sales":{
-        "title":"Sold sandwitches on market days",
+        "title":"Sold sandwiches on market days",
         "columns":['sale'+str(i) for i in range(6)]
     }
 }
@@ -455,16 +455,16 @@ def save_formdata_to_sheet(request, sheet, pages):
 
 # GoogleSheets routes
 #=====================
-@app.route("/sandwitches", methods=['GET','POST'])
-def sandwitches():
+@app.route("/sandwiches", methods=['GET','POST'])
+def sandwiches():
     SHEET = 'sales'
     if request.method == 'POST':
         save_formdata_to_sheet(request, SHEET, app.config['GSHEETS_WSHEETS'])
 
     gsheet = get_gsheet(SHEET)
     sales_data = gsheet.get_all_values()
-    return render_template("sandwitches.html", 
-                            page_title="Love Sandwitches",
+    return render_template("sandwiches.html", 
+                            page_title="Love Sandwiches",
                             page_subtitle=app.config["GSHEETS_WSHEETS"][SHEET]['title'],
                             request_path=request.path,
                             columns=app.config["GSHEETS_WSHEETS"][SHEET]['columns'], 
