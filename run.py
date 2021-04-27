@@ -61,6 +61,7 @@ app.config["GSHEETS_SCOPE"] = [
     ]
 app.config["GSHEETS_CREDITS"] = "./credits.json"
 app.config["GSHEETS_SHEETS"]  = "Python CodeInstitute-love_sandwiches"
+app.config["GSHEETS_COLUMNS"] = {"sales":['sale'+str(i) for i in range(6)]}
 
 
 # SQLite3 DB helpers
@@ -429,20 +430,38 @@ def get_gsheet(sheet):
             CREDS = Credentials.from_service_account_file(app.config["GSHEETS_CREDITS"])
             SCOPED_CREDS = CREDS.with_scopes(app.config["GSHEETS_SCOPE"])
             GSPREAD_CLIENT = gspread.authorize(SCOPED_CREDS)
-            SHEETS = GSPREAD_CLIENT.open(app.config["GSHEETS_SHEETS"])
+            sheets = GSPREAD_CLIENT.open(app.config["GSHEETS_SHEETS"])
         except:
             print(f"Could not connect to Google Sheets {app.config['GSHEETS_SHEETS']}")
             return None
-    return SHEETS.worksheet(sheet)
+    return sheets.worksheet(sheet)
+
+
+def save_formdata_to_sheet(request, sheet, columns):
+    sales_new  = [request.form.get(column,0) for column in columns]
+    try:
+        gsheet = get_gsheet(sheet)
+        gsheet.append_row(sales_new)
+        flash(f"One row successfully added")
+    except:
+        flash(f"Error in append operation!")
 
 
 # GoogleSheets routes
 #=====================
 @app.route("/sandwitches", methods=['GET','POST'])
 def sandwitches():
-    sales = get_gsheet('sales')
-    data = sales.get_all_values()
-    return render_template("sandwitches.html", page_title="Love Sandwitches", data=data)
+    SHEET = 'sales'
+    if request.method == 'POST':
+        save_formdata_to_sheet(request, SHEET, app.config['GSHEETS_COLUMNS'])
+
+    gsheet = get_gsheet(SHEET)
+    sales_data = gsheet.get_all_values()
+    return render_template("sandwitches.html", 
+                            page_title="Love Sandwitches",
+                            page_subtitle="Sold sandwitches on market days",
+                            columns=app.config["GSHEETS_COLUMNS"][SHEET], 
+                            data=sales_data)
 
 
 # Flask pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/

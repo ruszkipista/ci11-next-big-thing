@@ -6,6 +6,32 @@
 
 {% block body %}
 <div class="content">
-   {{ data }}
+    <h2>{{ page_subtitle }}</h2>
+    <p>link to the <a href="https://docs.google.com/spreadsheets/d/1EIDdrNyBF9oxFSFNpzwZWBmyUAYmawToDBEO0wu5GmQ/">google sheets</a></p>
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul>
+        {% for message in messages%}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+
+    <table>
+        {% for row in data %}
+        <tr>
+            {% if loop.first %}
+                {% for column in columns %}
+                <th>{{ row[loop.index0] }}</th>
+                {% endfor %}    
+            {% else %}
+            {% for column in columns %}
+            <td>{{ row[loop.index0] }}</td>
+            {% endfor %}    
+        {% endif %}                     
+        </tr>
+        {% endfor %}
+    </table>
 </div>
 {% endblock %}
