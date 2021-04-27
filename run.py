@@ -67,7 +67,8 @@ app.config["GSHEETS_PAGE"] = {
         "title":"Opening Stock - Sold = Surplus sandwiches on market days",
         "columns":['sale'+str(i) for i in range(6)]
 }
-
+app.config["GSHEETS_SALES_LOOKBACK"] = 5
+app.config["GSHEETS_SALES_MARKUP"] = 1.1
 
 # SQLite3 DB helpers
 #=====================
@@ -468,12 +469,17 @@ def sandwiches():
     stock_data = get_gsheet(SHEET_STOCK).get_all_values()
     sales_data = get_gsheet(SHEET_SALES).get_all_values()
     surplus_data = [[int(st)-int(sl) for st,sl in zip(stock,sales)] if i>0 else stock for i,(stock,sales) in enumerate(zip(stock_data,sales_data))]
+    lookback = app.config["GSHEETS_SALES_LOOKBACK"]
+    sales_lookback = [ [int(sales_data[row][col]) for row in range(-lookback, 0) ] for col in range(len(app.config["GSHEETS_PAGE"]["columns"]))]
+    stock_suggest = [round(sum(col)/lookback*app.config["GSHEETS_SALES_MARKUP"]) for col in sales_lookback]
     return render_template("sandwiches.html", 
                             page_title="Love Sandwiches",
                             page_subtitle=app.config["GSHEETS_PAGE"]["title"],
                             request_path=request.path,
                             columns=app.config["GSHEETS_PAGE"]["columns"], 
-                            data=zip_longest(stock_data,sales_data,surplus_data, fillvalue=[]))
+                            data=zip_longest(stock_data,sales_data,surplus_data, fillvalue=[]),
+                            suggest=stock_suggest
+                        )
 
 
 # Flask pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/

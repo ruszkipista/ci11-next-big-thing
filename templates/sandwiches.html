@@ -39,8 +39,14 @@
         {% endif %}                     
         </tr>
         {% endfor %}
+        <tr><td colspan="6">suggested stock for next market day</td></tr>
+        <tr>
+        {% for stock in suggest %}
+        <td>{{ stock }}</td>
+        {% endfor %}
+        </tr>
     </table>
-    
-    <p>link to the <a href="https://docs.google.com/spreadsheets/d/1EIDdrNyBF9oxFSFNpzwZWBmyUAYmawToDBEO0wu5GmQ/" target="_blank">google sheets</a></p>
+
+    <p>link to the <a href="https://docs.google.com/spreadsheets/d/1EIDdrNyBF9oxFSFNpzwZWBmyUAYmawToDBEO0wu5GmQ/" target="_blank">google sheets</a>, where data is stored</p>
 </div>
 {% endblock %}
