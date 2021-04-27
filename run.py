@@ -59,7 +59,8 @@ app.config["GSHEETS_SCOPE"] = [
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/drive"
     ]
-app.config["GSHEETS_CREDITS"] = "./credits.json"
+
+app.config["GSHEETS_CREDITS"] = json.loads(os.environ.get("GSHEETS_CREDITS"))
 app.config["GSHEETS_SHEETS"]  = "Python CodeInstitute-love_sandwiches"
 app.config["GSHEETS_WSHEETS"] = {
     "sales":{
@@ -432,7 +433,7 @@ def get_gsheet(sheet):
     sheets = getattr(g, '_database_gsheets', None)
     if sheets is None:
         try:
-            CREDS = Credentials.from_service_account_file(app.config["GSHEETS_CREDITS"])
+            CREDS = Credentials.from_service_account_info(app.config["GSHEETS_CREDITS"])
             SCOPED_CREDS = CREDS.with_scopes(app.config["GSHEETS_SCOPE"])
             GSPREAD_CLIENT = gspread.authorize(SCOPED_CREDS)
             sheets = GSPREAD_CLIENT.open(app.config["GSHEETS_SHEETS"])
