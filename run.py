@@ -12,6 +12,7 @@ from io import BytesIO
 import json
 from datetime import date, datetime
 from math import floor
+from itertools import zip_longest
 
 # Support for Google Drive and Google Sheets API
 #!pip install gspread google-auth
@@ -62,11 +63,9 @@ app.config["GSHEETS_SCOPE"] = [
 
 app.config["GSHEETS_CREDITS"] = json.loads(os.environ.get("GSHEETS_CREDITS"))
 app.config["GSHEETS_SHEETS"]  = "Python CodeInstitute-love_sandwiches"
-app.config["GSHEETS_WSHEETS"] = {
-    "sales":{
-        "title":"Sold sandwiches on market days",
+app.config["GSHEETS_PAGE"] = {
+        "title":"Stocked/Sold sandwiches on market days",
         "columns":['sale'+str(i) for i in range(6)]
-    }
 }
 
 
@@ -443,12 +442,12 @@ def get_gsheet(sheet):
     return sheets.worksheet(sheet)
 
 
-def save_formdata_to_sheet(request, sheet, pages):
-    sales_new  = [int(request.form.get(column,0)) for column in pages[sheet]['columns']]
+def save_formdata_to_sheet(request, sheet, page):
+    row  = [int(request.form.get(column,0)) for column in page['columns']]
     try:
         gsheet = get_gsheet(sheet)
-        gsheet.append_row(sales_new)
-        flash(f"One row successfully added")
+        gsheet.append_row(row)
+        flash(f"One row successfully added to {sheet}")
     except:
         flash(f"Error in append operation!")
 
@@ -457,18 +456,23 @@ def save_formdata_to_sheet(request, sheet, pages):
 #=====================
 @app.route("/sandwiches", methods=['GET','POST'])
 def sandwiches():
-    SHEET = 'sales'
+    SHEET_SALES = 'sales'
+    SHEET_STOCK = 'stock'
     if request.method == 'POST':
-        save_formdata_to_sheet(request, SHEET, app.config['GSHEETS_WSHEETS'])
+        save_formdata_to_sheet(request, request.form['submit'], app.config['GSHEETS_PAGE'])
+        # stock_data = get_gsheet(SHEET_STOCK).get_all_values()
+        # stock_row = stock_data[-1]
+        # surplus_row = [int(stock)-sales for stock,sales in zip(stock_row,sales_row)]
+        # print(surplus_row)
 
-    gsheet = get_gsheet(SHEET)
-    sales_data = gsheet.get_all_values()
+    stock_data = get_gsheet(SHEET_STOCK).get_all_values()
+    sales_data = get_gsheet(SHEET_SALES).get_all_values()
     return render_template("sandwiches.html", 
                             page_title="Love Sandwiches",
-                            page_subtitle=app.config["GSHEETS_WSHEETS"][SHEET]['title'],
+                            page_subtitle=app.config["GSHEETS_PAGE"]["title"],
                             request_path=request.path,
-                            columns=app.config["GSHEETS_WSHEETS"][SHEET]['columns'], 
-                            data=sales_data)
+                            columns=app.config["GSHEETS_PAGE"]["columns"], 
+                            data=zip_longest(stock_data,sales_data, fillvalue=[]))
 
 
 # Flask pattern from https://flask.palletsprojects.com/en/1.1.x/patterns/sqlite3/

@@ -18,22 +18,23 @@
     {% endwith %}
 
     <table>
-        {% for row in data %}
+        {% for stock_row, sales_row in data %}
         <tr>
         {% if loop.first %}
             <form action="{{ request_path }}" method="POST">
             {% for column in columns %}
-            <th>{{ row[loop.index0] }}<br>
+            <th>{{ sales_row[loop.index0] }}<br>
                 <input type="number" name="{{column}}">
                 {% if loop.last %}
-                <button type="submit">Add</button>
+                <button type="submit" name="submit" value="sales">-> Sales</button>
+                <button type="submit" name="submit" value="stock">-> Stock</button>
                 {% endif %}  
             </th>
             {% endfor %}
             </form>
         {% else %}
             {% for column in columns %}
-            <td>{{ row[loop.index0] }}</td>
+            <td>{{ stock_row[loop.index0] }} / {{ sales_row[loop.index0] }}</td>
             {% endfor %}    
         {% endif %}                     
         </tr>
