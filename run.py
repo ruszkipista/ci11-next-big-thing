@@ -61,7 +61,12 @@ app.config["GSHEETS_SCOPE"] = [
     ]
 app.config["GSHEETS_CREDITS"] = "./credits.json"
 app.config["GSHEETS_SHEETS"]  = "Python CodeInstitute-love_sandwiches"
-app.config["GSHEETS_COLUMNS"] = {"sales":['sale'+str(i) for i in range(6)]}
+app.config["GSHEETS_WSHEETS"] = {
+    "sales":{
+        "title":"Sold sandwitches on market days",
+        "columns":['sale'+str(i) for i in range(6)]
+    }
+}
 
 
 # SQLite3 DB helpers
@@ -437,8 +442,8 @@ def get_gsheet(sheet):
     return sheets.worksheet(sheet)
 
 
-def save_formdata_to_sheet(request, sheet, columns):
-    sales_new  = [request.form.get(column,0) for column in columns]
+def save_formdata_to_sheet(request, sheet, pages):
+    sales_new  = [int(request.form.get(column,0)) for column in pages[sheet]['columns']]
     try:
         gsheet = get_gsheet(sheet)
         gsheet.append_row(sales_new)
@@ -453,14 +458,15 @@ def save_formdata_to_sheet(request, sheet, columns):
 def sandwitches():
     SHEET = 'sales'
     if request.method == 'POST':
-        save_formdata_to_sheet(request, SHEET, app.config['GSHEETS_COLUMNS'])
+        save_formdata_to_sheet(request, SHEET, app.config['GSHEETS_WSHEETS'])
 
     gsheet = get_gsheet(SHEET)
     sales_data = gsheet.get_all_values()
     return render_template("sandwitches.html", 
                             page_title="Love Sandwitches",
-                            page_subtitle="Sold sandwitches on market days",
-                            columns=app.config["GSHEETS_COLUMNS"][SHEET], 
+                            page_subtitle=app.config["GSHEETS_WSHEETS"][SHEET]['title'],
+                            request_path=request.path,
+                            columns=app.config["GSHEETS_WSHEETS"][SHEET]['columns'], 
                             data=sales_data)
 
 

@@ -7,7 +7,7 @@
 {% block body %}
 <div class="content">
     <h2>{{ page_subtitle }}</h2>
-    <p>link to the <a href="https://docs.google.com/spreadsheets/d/1EIDdrNyBF9oxFSFNpzwZWBmyUAYmawToDBEO0wu5GmQ/">google sheets</a></p>
+    <p>link to the <a href="https://docs.google.com/spreadsheets/d/1EIDdrNyBF9oxFSFNpzwZWBmyUAYmawToDBEO0wu5GmQ/" target="_blank">google sheets</a></p>
     {% with messages = get_flashed_messages() %}
     {% if messages %}
     <ul>
@@ -21,11 +21,18 @@
     <table>
         {% for row in data %}
         <tr>
-            {% if loop.first %}
-                {% for column in columns %}
-                <th>{{ row[loop.index0] }}</th>
-                {% endfor %}    
-            {% else %}
+        {% if loop.first %}
+            <form action="{{ request_path }}" method="POST">
+            {% for column in columns %}
+            <th>{{ row[loop.index0] }}<br>
+                <input type="number" name="{{column}}">
+                {% if loop.last %}
+                <button type="submit">Add</button>
+                {% endif %}  
+            </th>
+            {% endfor %}
+            </form>
+        {% else %}
             {% for column in columns %}
             <td>{{ row[loop.index0] }}</td>
             {% endfor %}    
